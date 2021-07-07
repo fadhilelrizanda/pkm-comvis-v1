@@ -11,7 +11,7 @@ cfg = __C
 # YOLO options
 __C.YOLO = edict()
 
-__C.YOLO.CLASSES = "./data/classes/coco.names"  # ! Change to current names
+__C.YOLO.CLASSES = "./data/classes/kendaraan.names"  # ! Change to current names
 __C.YOLO.ANCHORS = [12, 16, 19, 36, 40, 28, 36, 75,
                     76, 55, 72, 146, 142, 110, 192, 243, 459, 401]
 __C.YOLO.ANCHORS_V3 = [10, 13, 16, 30, 33, 23, 30,
