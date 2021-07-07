@@ -232,13 +232,13 @@ def main(_argv):
             cv2.rectangle(frame, (int(bbox[0]), int(bbox[1]-30)), (int(bbox[0])+(
                 len(class_name)+len(str(track.track_id)))*17, int(bbox[1])), color, -1)
             cv2.putText(frame, class_name + "-" + str(track.track_id),
-                        (int(bbox[0]), int(bbox[1]-10)), 0, 0.75, (255, 255, 255), 2)
+                        (100, 100), 0, 0.75, (255, 255, 255), 2)
             cv2.putText(frame, "K_Kecil : "+str(kendaraan_kecil), (10, 50),
-                        (int(bbox[0]), int(bbox[1]-10)), 0, 0.75, (255, 255, 255), 2)
+                        (100, 200), 0, 0.75, (255, 255, 255), 2)
             cv2.putText(frame, "K_Besar : "+str(kendaraan_besar), (10, 100),
-                        (int(bbox[0]), int(bbox[1]-10)), 0, 0.75, (255, 255, 255), 2)
+                        (100, 300), 0, 0.75, (255, 255, 255), 2)
             cv2.putText(frame, "FPS : "+str(fps), (10, 100),
-                        (int(bbox[0]), int(bbox[1]-10)), 0, 0.75, (255, 255, 255), 2)
+                        (100, 400), 0, 0.75, (255, 255, 255), 2)
         # if enable info flag then print details about each track
             if FLAGS.info:
                 print("Tracker ID: {}, Class: {},  BBox Coords (xmin, ymin, xmax, ymax): {}".format(
