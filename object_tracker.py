@@ -209,21 +209,13 @@ def main(_argv):
         tracker.predict()
         tracker.update(detections)
 
-        fps = 1.0 / (time.time() - start_time)  # added
-        print("FPS: %.2f" % fps)  # added
-
         # update tracks
         for track in tracker.tracks:
             if not track.is_confirmed() or track.time_since_update > 1:
                 continue
             bbox = track.to_tlbr()
             class_name = track.get_class()
-        kendaraan_besar = 0
-        kendaraan_kecil = 0
-        if class_name == "kendaraan_besar":
-            kendaraan_besar += 1
-        if class_name == "kendaraan_kecil":
-            kendaraan_kecil += 1
+
         # draw bbox on screen
             color = colors[int(track.track_id) % len(colors)]
             color = [i * 255 for i in color]
@@ -232,21 +224,16 @@ def main(_argv):
             cv2.rectangle(frame, (int(bbox[0]), int(bbox[1]-30)), (int(bbox[0])+(
                 len(class_name)+len(str(track.track_id)))*17, int(bbox[1])), color, -1)
             cv2.putText(frame, class_name + "-" + str(track.track_id),
-                        (100, 100), 0, 0.75, (255, 255, 255), 2)
-            cv2.putText(frame, "K_Kecil : "+str(kendaraan_kecil), (10, 50),
-                        (100, 200), 0, 0.75, (255, 255, 255), 2)
-            cv2.putText(frame, "K_Besar : "+str(kendaraan_besar), (10, 100),
-                        (100, 300), 0, 0.75, (255, 255, 255), 2)
-            cv2.putText(frame, "FPS : "+str(fps), (10, 100),
-                        (100, 400), 0, 0.75, (255, 255, 255), 2)
+                        (int(bbox[0]), int(bbox[1]-10)), 0, 0.75, (255, 255, 255), 2)
+
         # if enable info flag then print details about each track
             if FLAGS.info:
                 print("Tracker ID: {}, Class: {},  BBox Coords (xmin, ymin, xmax, ymax): {}".format(
                     str(track.track_id), class_name, (int(bbox[0]), int(bbox[1]), int(bbox[2]), int(bbox[3]))))
 
         # calculate frames per second of running detections
-        # fps = 1.0 / (time.time() - start_time)
-        # print("FPS: %.2f" % fps)
+        fps = 1.0 / (time.time() - start_time)
+        print("FPS: %.2f" % fps)
         result = np.asarray(frame)
         result = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
 
