@@ -19,6 +19,7 @@ import time
 import os
 from collections import deque
 
+
 # comment out below line to enable tensorflow logging outputs
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 physical_devices = tf.config.experimental.list_physical_devices(
@@ -244,7 +245,15 @@ def main(_argv):
             center = (int(((bbox[0]) + (bbox[2]))/2),
                       int(((bbox[1])+(bbox[3]))/2))
             pts[track.track_id].append(center)
+            line_1_point_x = 0
+            line_1_point_y = 100
+            line_2_point_x = 100
+            line_2_point_y = 200
 
+            line_3_point_x = 150
+            line_3_point_y = 100
+            line_4_point_x = 300
+            line_4_point_y = 200
             for j in range(1, len(pts[track.track_id])):
                 if pts[track.track_id][j-1] is None or pts[track.track_id][j] is None:
                     continue
@@ -253,14 +262,17 @@ def main(_argv):
                          (pts[track.track_id][j]), color, thickness)
 
             height, width, _ = frame.shape
-            cv2.line(frame, (0, int(3*height/6+height/20)),
-                     (width, int(3*height/6+height/20)), (0, 255, 0), thickness=2)
+            cv2.line(frame, (line_1_point_x, line_1_point_y),
+                     (line_2_point_x, line_2_point_y), (0, 255, 0), thickness=2)
+            cv2.line(frame, (line_3_point_x, line_3_point_y),
+                     (line_4_point_x, line_4_point_y), (0, 255, 255), thickness=2)
             # cv2.line(frame, (0, int(3*height/6-height/20)),
             #          (width, int(3*height/6-height/20)), (0, 255, 0), thickness=2)
 
             center_y = int(((bbox[1])+(bbox[3]))/2)
+            center_x = int(((bbox[0])+(bbox[2]))/2)
 
-            if center_y <= int(3*height/6+height/20):
+            if center_y >= int((height/2)):
                 if class_name == 'kendaraan_kecil' or class_name == 'kendaraan_besar':
                     counter.append(int(track.track_id))
                     if class_name == 'kendaraan_kecil':
@@ -274,11 +286,11 @@ def main(_argv):
             total_k_kecil = len(set(kendaraan_kecil_count))
             total_k_besar = len(set(kendaraan_besar_count))
             cv2.putText(frame, "Total Kendaraan: " +
-                        str(total_count), (0, height), 0, 1, (0, 0, 255), 2)
+                        str(total_count), (0, 100), 0, 1, (0, 0, 255), 2)
             cv2.putText(frame, "Kendaraan Kecil: " +
-                        str(total_k_kecil), (0, 200), 0, 1, (0, 0, 255), 2)
-            cv2.putText(frame, "Kendaraan Kecil: " +
-                        str(total_k_besar), (0, 100), 0, 1, (0, 0, 255), 2)
+                        str(total_k_kecil), (0, 150), 0, 1, (0, 0, 255), 2)
+            cv2.putText(frame, "Kendaraan Besar: " +
+                        str(total_k_besar), (0, 200), 0, 1, (0, 0, 255), 2)
             cv2.putText(frame, "FPS : " + str(int(fps)),
                         (0, 50), 0, 1, (0, 0, 255), 2)
 
