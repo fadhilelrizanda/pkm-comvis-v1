@@ -17,9 +17,12 @@ from absl import app, flags, logging
 import tensorflow as tf
 import time
 import os
+from __collection import deque
+
 # comment out below line to enable tensorflow logging outputs
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
-physical_devices = tf.config.experimental.list_physical_devices('GPU')
+physical_devices = tf.config.experimental.list_physical_devices(
+    'GPU')  # Check GPU Device
 if len(physical_devices) > 0:
     tf.config.experimental.set_memory_growth(physical_devices[0], True)
 # deep sort imports
@@ -32,7 +35,7 @@ flags.DEFINE_string('model', 'yolov4', 'yolov3 or yolov4')
 flags.DEFINE_string('video', './data/video/test.mp4',
                     'path to input video or set to 0 for webcam')
 flags.DEFINE_string('output', None, 'path to output video')
-flags.DEFINE_string('output_format', 'XVID',
+flags.DEFINE_string('output_format', 'mp4v',
                     'codec used in VideoWriter when saving video to file')
 flags.DEFINE_float('iou', 0.45, 'iou threshold')
 flags.DEFINE_float('score', 0.50, 'score threshold')
@@ -42,6 +45,7 @@ flags.DEFINE_boolean('count', False, 'count objects being tracked on screen')
 
 
 def main(_argv):
+
     # Definition of the parameters
     max_cosine_distance = 0.4
     nn_budget = None
@@ -63,6 +67,11 @@ def main(_argv):
     STRIDES, ANCHORS, NUM_CLASS, XYSCALE = utils.load_config(FLAGS)
     input_size = FLAGS.size
     video_path = FLAGS.video
+
+    # For Gate (Counter)
+    pts = [deque(maxlen=30) for _ in range(1000)]
+    counter = []
+    current_count = int(0)
 
     # load tflite model if flag is set
     if FLAGS.framework == 'tflite':
@@ -166,7 +175,7 @@ def main(_argv):
         allowed_classes = list(class_names.values())
 
         # custom allowed classes (uncomment line below to customize tracker for only people)
-        #allowed_classes = ['person']
+        # allowed_classes = ['person']
 
         # loop through objects and use class index to get class name, allow only classes in allowed_classes list
         names = []
@@ -225,6 +234,38 @@ def main(_argv):
                 len(class_name)+len(str(track.track_id)))*17, int(bbox[1])), color, -1)
             cv2.putText(frame, class_name + "-" + str(track.track_id),
                         (int(bbox[0]), int(bbox[1]-10)), 0, 0.75, (255, 255, 255), 2)
+
+        # Gate Line
+
+            center = (int(((bbox[0]) + (bbox[2]))/2),
+                      int(((bbox[1])+(bbox[3]))/2))
+            pts[track.track_id].append(center)
+
+            for j in range(1, len(pts[track.track_id])):
+                if pts[track.track_id][j-1] is None or pts[track.track_id][j] is None:
+                    continue
+                thickness = int(np.sqrt(64/float(j+1))*2)
+                cv2.line(frame, (pts[track.track_id][j-1]),
+                         (pts[track.track_id][j]), color, thickness)
+
+            height, width, _ = frame.shape
+            cv2.line(frame, (0, int(3*height/6+height/20)),
+                     (width, int(3*height/6+height/20)), (0, 255, 0), thickness=2)
+            cv2.line(frame, (0, int(3*height/6-height/20)),
+                     (width, int(3*height/6-height/20)), (0, 255, 0), thickness=2)
+
+            center_y = int(((bbox[1])+(bbox[3]))/2)
+
+            if center_y <= int(3*height/6+height/20) and center_y >= int(3*height/6-height/20):
+                if class_name == 'car' or class_name == 'truck':
+                    counter.append(int(track.track_id))
+                    current_count += 1
+
+            total_count = len(set(counter))
+            cv2.putText(frame, "Current Vehicle Count: " +
+                        str(current_count), (0, 80), 0, 1, (0, 0, 255), 2)
+            cv2.putText(frame, "Total Vehicle Count: " + str(total_count),
+                        (0, 130), 0, 1, (0, 0, 255), 2)
 
         # if enable info flag then print details about each track
             if FLAGS.info:
