@@ -17,7 +17,7 @@ from absl import app, flags, logging
 import tensorflow as tf
 import time
 import os
-from __collection import deque
+from collections import deque
 
 # comment out below line to enable tensorflow logging outputs
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
@@ -49,7 +49,7 @@ def main(_argv):
     # Definition of the parameters
     max_cosine_distance = 0.4
     nn_budget = None
-    nms_max_overlap = 1.0
+    nms_max_overlap = 0.5
 
     # initialize deep sort
     model_filename = 'model_data/mars-small128.pb'
@@ -218,6 +218,9 @@ def main(_argv):
         tracker.predict()
         tracker.update(detections)
 
+        fps = 1.0 / (time.time() - start_time)
+        print("FPS: %.2f" % fps)
+
         # update tracks
         for track in tracker.tracks:
             if not track.is_confirmed() or track.time_since_update > 1:
@@ -251,20 +254,20 @@ def main(_argv):
             height, width, _ = frame.shape
             cv2.line(frame, (0, int(3*height/6+height/20)),
                      (width, int(3*height/6+height/20)), (0, 255, 0), thickness=2)
-            cv2.line(frame, (0, int(3*height/6-height/20)),
-                     (width, int(3*height/6-height/20)), (0, 255, 0), thickness=2)
+            # cv2.line(frame, (0, int(3*height/6-height/20)),
+            #          (width, int(3*height/6-height/20)), (0, 255, 0), thickness=2)
 
             center_y = int(((bbox[1])+(bbox[3]))/2)
 
-            if center_y <= int(3*height/6+height/20) and center_y >= int(3*height/6-height/20):
-                if class_name == 'car' or class_name == 'truck':
+            if center_y <= int(3*height/6+height/20):
+                if class_name == 'kendaraan_kecil' or class_name == 'kendaraan_besar':
                     counter.append(int(track.track_id))
                     current_count += 1
 
             total_count = len(set(counter))
             cv2.putText(frame, "Current Vehicle Count: " +
                         str(current_count), (0, 80), 0, 1, (0, 0, 255), 2)
-            cv2.putText(frame, "Total Vehicle Count: " + str(total_count),
+            cv2.putText(frame, "FPS : " + str(int(fps)),
                         (0, 130), 0, 1, (0, 0, 255), 2)
 
         # if enable info flag then print details about each track
@@ -273,8 +276,7 @@ def main(_argv):
                     str(track.track_id), class_name, (int(bbox[0]), int(bbox[1]), int(bbox[2]), int(bbox[3]))))
 
         # calculate frames per second of running detections
-        fps = 1.0 / (time.time() - start_time)
-        print("FPS: %.2f" % fps)
+
         result = np.asarray(frame)
         result = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
 
