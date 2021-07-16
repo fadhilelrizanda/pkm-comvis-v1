@@ -262,6 +262,9 @@ def main(_argv):
                          (pts[track.track_id][j]), color, thickness)
 
             height, width, _ = frame.shape
+            print("Height  %.2f".format(height))
+            print("Width : %.2f".format(width))
+
             cv2.line(frame, (line_1_point_x, line_1_point_y),
                      (line_2_point_x, line_2_point_y), (0, 255, 0), thickness=2)
             cv2.line(frame, (line_3_point_x, line_3_point_y),
