@@ -71,7 +71,8 @@ def main(_argv):
     # For Gate (Counter)
     pts = [deque(maxlen=30) for _ in range(1000)]
     counter = []
-    current_count = int(0)
+    kendaraan_kecil_count = []
+    kendaraan_besar_count = []
 
     # load tflite model if flag is set
     if FLAGS.framework == 'tflite':
@@ -262,13 +263,24 @@ def main(_argv):
             if center_y <= int(3*height/6+height/20):
                 if class_name == 'kendaraan_kecil' or class_name == 'kendaraan_besar':
                     counter.append(int(track.track_id))
-                    current_count += 1
+                    if class_name == 'kendaraan_kecil':
+                        kendaraan_kecil_count.append(int(track.track_id))
+                    if class_name == 'kendaraan_besar':
+                        kendaraan_besar_count.append(int(track.track_id))
+                    counter.append(int(track.track_id))
+                    # current_count += 1
 
             total_count = len(set(counter))
-            cv2.putText(frame, "Current Vehicle Count: " +
-                        str(current_count), (0, 80), 0, 1, (0, 0, 255), 2)
+            total_k_kecil = len(set(kendaraan_kecil_count))
+            total_k_besar = len(set(kendaraan_besar_count))
+            cv2.putText(frame, "Total Kendaraan: " +
+                        str(total_count), (0, height), 0, 1, (0, 0, 255), 2)
+            cv2.putText(frame, "Kendaraan Kecil: " +
+                        str(total_k_kecil), (0, 200), 0, 1, (0, 0, 255), 2)
+            cv2.putText(frame, "Kendaraan Kecil: " +
+                        str(total_k_besar), (0, 100), 0, 1, (0, 0, 255), 2)
             cv2.putText(frame, "FPS : " + str(int(fps)),
-                        (0, 130), 0, 1, (0, 0, 255), 2)
+                        (0, 50), 0, 1, (0, 0, 255), 2)
 
         # if enable info flag then print details about each track
             if FLAGS.info:
