@@ -46,7 +46,7 @@ def click_event(event, x, y, flags, params):
 if __name__ == "__main__":
 
     vid = cv2.VideoCapture(
-        'D:\Programs\VSC code\Python\Object Tracking PKM 2\yolov4-pkm\outputs\cars.avi')
+        'D:\Programs\VSC code\Python\Object Tracking PKM 2\yolov4-pkm\outputs\input_video.mp4')
     width = int(vid.get(cv2.CAP_PROP_FRAME_WIDTH))
     height = int(vid.get(cv2.CAP_PROP_FRAME_HEIGHT))
 

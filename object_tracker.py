@@ -18,7 +18,7 @@ import tensorflow as tf
 import time
 import os
 from collections import deque
-
+import math
 
 # comment out below line to enable tensorflow logging outputs
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
@@ -93,10 +93,10 @@ def main(_argv):
     already_counted = deque(maxlen=50)
     up_count = int(0)
     down_count = int(0)
-    line_1_point_x = 1181
-    line_1_point_y = 439
-    line_2_point_x = 894
-    line_2_point_y = 501
+    line_1_point_x = int(278)
+    line_1_point_y = int(423)
+    line_2_point_x = int(912)
+    line_2_point_y = int(397)
 
     # load tflite model if flag is set
     if FLAGS.framework == 'tflite':
@@ -276,11 +276,11 @@ def main(_argv):
                 cv2.line(frame, (pts[track.track_id][j-1]),
                          (pts[track.track_id][j]), color, thickness)
 
-                center_y = int(((bbox[1])+(bbox[3]))/2)
+            center_y = int(((bbox[1])+(bbox[3]))/2)
             center_x = int(((bbox[0])+(bbox[2]))/2)
             current_point = [center_x, center_y]
             memory[track.track_id].append(current_point)
-            previous_point = memory[track.track_id]
+            previous_point = memory[track.track_id][0]
 
             line = [(line_1_point_x, line_1_point_y),
                     (line_2_point_x, line_2_point_y)]
@@ -305,7 +305,8 @@ def main(_argv):
 
                     if angle < 0:
                         down_count += 1
-
+            if len(memory) > 50:
+                del memory[list(memory)[0]]
             total_count = len(set(counter))
             total_k_kecil = len(set(kendaraan_kecil_count))
             total_k_besar = len(set(kendaraan_besar_count))
