@@ -45,6 +45,20 @@ flags.DEFINE_boolean('info', False, 'show detailed info of tracked objects')
 flags.DEFINE_boolean('count', False, 'count objects being tracked on screen')
 
 
+def intersect(current_point, prev_point, point_line_1, point_line_2):
+    return ccw(current_point, prev_point, point_line_2) != ccw(prev_point, point_line_1, point_line_2) and ccw(current_point, prev_point, point_line_1) != ccw(current_point, prev_point, point_line_2)
+
+
+def ccw(current_point, prev_point, point_line_1):
+    return (point_line_1[1]-current_point[1])*(prev_point[0]-current_point[0]) > (prev_point[1]-current_point[1])*(point_line_1[0]-point_line_1[0])
+
+
+def vector_vehicle(point_A, Point_B):
+    x = point_A[0] - Point_B[0]
+    y = point_A[1] - Point_B[1]
+    return math.degrees(math.atan2(y, x))
+
+
 def main(_argv):
 
     # Definition of the parameters
@@ -74,6 +88,15 @@ def main(_argv):
     counter = []
     kendaraan_kecil_count = []
     kendaraan_besar_count = []
+    memory = {}
+    # temporary memory for storing counted IDs
+    already_counted = deque(maxlen=50)
+    up_count = int(0)
+    down_count = int(0)
+    line_1_point_x = 1181
+    line_1_point_y = 439
+    line_2_point_x = 894
+    line_2_point_y = 501
 
     # load tflite model if flag is set
     if FLAGS.framework == 'tflite':
@@ -229,8 +252,10 @@ def main(_argv):
                 continue
             bbox = track.to_tlbr()
             class_name = track.get_class()
+            if track.track_id not in memory:
+                memory[track.track_id] = deque(maxlen=2)
 
-        # draw bbox on screen
+                # draw bbox on screen
             color = colors[int(track.track_id) % len(colors)]
             color = [i * 255 for i in color]
             cv2.rectangle(frame, (int(bbox[0]), int(
@@ -240,20 +265,10 @@ def main(_argv):
             cv2.putText(frame, class_name + "-" + str(track.track_id),
                         (int(bbox[0]), int(bbox[1]-10)), 0, 0.75, (255, 255, 255), 2)
 
-        # Gate Line
-
             center = (int(((bbox[0]) + (bbox[2]))/2),
                       int(((bbox[1])+(bbox[3]))/2))
             pts[track.track_id].append(center)
-            line_1_point_x = 0
-            line_1_point_y = 100
-            line_2_point_x = 100
-            line_2_point_y = 200
 
-            line_3_point_x = 150
-            line_3_point_y = 100
-            line_4_point_x = 300
-            line_4_point_y = 200
             for j in range(1, len(pts[track.track_id])):
                 if pts[track.track_id][j-1] is None or pts[track.track_id][j] is None:
                     continue
@@ -261,21 +276,18 @@ def main(_argv):
                 cv2.line(frame, (pts[track.track_id][j-1]),
                          (pts[track.track_id][j]), color, thickness)
 
-            height, width, _ = frame.shape
-            print("Height  %.2f".format(height))
-            print("Width : %.2f".format(width))
-
-            cv2.line(frame, (line_1_point_x, line_1_point_y),
-                     (line_2_point_x, line_2_point_y), (0, 255, 0), thickness=2)
-            cv2.line(frame, (line_3_point_x, line_3_point_y),
-                     (line_4_point_x, line_4_point_y), (0, 255, 255), thickness=2)
-            # cv2.line(frame, (0, int(3*height/6-height/20)),
-            #          (width, int(3*height/6-height/20)), (0, 255, 0), thickness=2)
-
-            center_y = int(((bbox[1])+(bbox[3]))/2)
+                center_y = int(((bbox[1])+(bbox[3]))/2)
             center_x = int(((bbox[0])+(bbox[2]))/2)
+            current_point = [center_x, center_y]
+            memory[track.track_id].append(current_point)
+            previous_point = memory[track.track_id]
 
-            if center_y >= int((height/2)):
+            line = [(line_1_point_x, line_1_point_y),
+                    (line_2_point_x, line_2_point_y)]
+            cv2.line(frame, (line_1_point_x, line_1_point_y),
+                     (line_2_point_x, line_2_point_y), (0, 255, 0), thickness=4)
+
+            if intersect(current_point, previous_point, line[0], line[1]) and track.track_id not in already_counted:
                 if class_name == 'kendaraan_kecil' or class_name == 'kendaraan_besar':
                     counter.append(int(track.track_id))
                     if class_name == 'kendaraan_kecil':
@@ -283,7 +295,16 @@ def main(_argv):
                     if class_name == 'kendaraan_besar':
                         kendaraan_besar_count.append(int(track.track_id))
                     counter.append(int(track.track_id))
-                    # current_count += 1
+
+                    already_counted.append(track.track_id)
+
+                    angle = vector_vehicle(current_point, previous_point)
+
+                    if angle > 0:
+                        up_count += 1
+
+                    if angle < 0:
+                        down_count += 1
 
             total_count = len(set(counter))
             total_k_kecil = len(set(kendaraan_kecil_count))
@@ -294,6 +315,10 @@ def main(_argv):
                         str(total_k_kecil), (0, 150), 0, 1, (0, 0, 255), 2)
             cv2.putText(frame, "Kendaraan Besar: " +
                         str(total_k_besar), (0, 200), 0, 1, (0, 0, 255), 2)
+            cv2.putText(frame, "Kendaraan Up: " +
+                        str(up_count), (0, 250), 0, 1, (0, 0, 255), 2)
+            cv2.putText(frame, "Kendaraan Down: " +
+                        str(down_count), (0, 300), 0, 1, (0, 0, 255), 2)
             cv2.putText(frame, "FPS : " + str(int(fps)),
                         (0, 50), 0, 1, (0, 0, 255), 2)
 
