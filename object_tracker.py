@@ -20,6 +20,36 @@ import os
 from collections import deque
 import math
 
+import json
+import websocket
+try:
+    import thread
+except ImportError:
+    import _thread as thread
+import time
+
+
+def on_message(ws, message):
+    print(message)
+
+
+def on_error(ws, error):
+    print(error)
+
+
+def on_close(ws, close_status_code, close_msg):
+    print("### closed ###")
+
+
+def on_open(ws, i):
+    def run(*args):
+        ws.send(json.dumps({"event": "vehicle", "data": {
+                "vehicle": i, "iot_token": "db538ac102672774aec1931add33d5aa46e76e2401a79337216c40144634a82b"}}))
+        ws.close()
+        print("thread terminating...")
+    thread.start_new_thread(run, ())
+
+
 # comment out below line to enable tensorflow logging outputs
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 physical_devices = tf.config.experimental.list_physical_devices(
@@ -60,6 +90,8 @@ def vector_vehicle(point_A, Point_B):
 
 
 def main(_argv):
+    # Websocket
+    websocket.enableTrace(True)
 
     # Definition of the parameters
     max_cosine_distance = 0.4
@@ -301,27 +333,13 @@ def main(_argv):
                     angle = vector_vehicle(current_point, previous_point)
 
                     if angle > 0:
-                        up_count += 1
+                        down_count += 1
 
                     if angle < 0:
-                        down_count += 1
+                        up_count += 1
+
             if len(memory) > 50:
                 del memory[list(memory)[0]]
-            total_count = len(set(counter))
-            total_k_kecil = len(set(kendaraan_kecil_count))
-            total_k_besar = len(set(kendaraan_besar_count))
-            cv2.putText(frame, "Total Kendaraan: " +
-                        str(total_count), (0, 100), 0, 1, (0, 0, 255), 2)
-            cv2.putText(frame, "Kendaraan Kecil: " +
-                        str(total_k_kecil), (0, 150), 0, 1, (0, 0, 255), 2)
-            cv2.putText(frame, "Kendaraan Besar: " +
-                        str(total_k_besar), (0, 200), 0, 1, (0, 0, 255), 2)
-            cv2.putText(frame, "Kendaraan Up: " +
-                        str(up_count), (0, 250), 0, 1, (0, 0, 255), 2)
-            cv2.putText(frame, "Kendaraan Down: " +
-                        str(down_count), (0, 300), 0, 1, (0, 0, 255), 2)
-            cv2.putText(frame, "FPS : " + str(int(fps)),
-                        (0, 50), 0, 1, (0, 0, 255), 2)
 
         # if enable info flag then print details about each track
             if FLAGS.info:
@@ -329,9 +347,32 @@ def main(_argv):
                     str(track.track_id), class_name, (int(bbox[0]), int(bbox[1]), int(bbox[2]), int(bbox[3]))))
 
         # calculate frames per second of running detections
+        total_count = len(set(counter))
+        total_k_kecil = len(set(kendaraan_kecil_count))
+        total_k_besar = len(set(kendaraan_besar_count))
 
+        cv2.putText(frame, "Total Kendaraan: " +
+                    str(total_count), (0, 100), 0, 1, (255, 255, 255), 2)
+        cv2.putText(frame, "Kendaraan Kecil: " +
+                    str(total_k_kecil), (0, 150), 0, 1, (255, 255, 255), 2)
+        cv2.putText(frame, "Kendaraan Besar: " +
+                    str(total_k_besar), (0, 200), 0, 1, (255, 255, 255), 2)
+        cv2.putText(frame, "Kendaraan Up: " +
+                    str(up_count), (0, 250), 0, 1, (255, 255, 255), 2)
+        cv2.putText(frame, "Kendaraan Down: " +
+                    str(down_count), (0, 300), 0, 1, (255, 255, 255), 2)
+        cv2.putText(frame, "FPS : " + str(int(fps)),
+                    (0, 50), 0, 1, (0, 0, 255), 2)
         result = np.asarray(frame)
         result = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+
+        ws = websocket.WebSocketApp("wss://sipejam-restfullapi.herokuapp.com",
+                                    on_open=on_open(ws, total_count),
+                                    on_message=on_message,
+                                    on_error=on_error,
+                                    on_close=on_close)
+
+        ws.run_forever()
 
         if not FLAGS.dont_show:
             cv2.imshow("Output Video", result)
