@@ -21,12 +21,14 @@ from collections import deque
 import math
 
 import json
+
 import websocket
+import time
+
 try:
     import thread
 except ImportError:
     import _thread as thread
-import time
 
 
 def on_message(ws, message):
@@ -41,13 +43,18 @@ def on_close(ws, close_status_code, close_msg):
     print("### closed ###")
 
 
+# Changed Variable
+total_k_kecil = int(0)
+
+
 def on_open(ws):
     def run(*args):
-        i = 3
-        ws.send(json.dumps({"event": "vehicle", "data": {
-            "vehicle": i, "iot_token": "db538ac102672774aec1931add33d5aa46e76e2401a79337216c40144634a82b"}}))
-        print("thread terminating...")
 
+        ws.send(json.dumps({"event": "vehicle_1", "data": {
+                "vehicle": total_k_kecil, "iot_token": "057110891c54543e9b645c8aaa65d25ea6c27f5d8e620fafb98e5aff9fbbf7f3"}}))
+        time.sleep(1)
+        ws.close()
+        print("thread terminating...")
     thread.start_new_thread(run, ())
 
 
@@ -92,12 +99,6 @@ def vector_vehicle(point_A, Point_B):
 
 def main(_argv):
     # Websocket
-    websocket.enableTrace(True)
-    ws = websocket.WebSocketApp("wss://sipejam-restfullapi.herokuapp.com",
-                                on_open=on_open,
-                                on_message=on_message,
-                                on_error=on_error,
-                                on_close=on_close)
 
     # Definition of the parameters
     max_cosine_distance = 0.4
@@ -371,10 +372,6 @@ def main(_argv):
                     (0, 50), 0, 1, (0, 0, 255), 2)
         result = np.asarray(frame)
         result = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
-
-        ws.send(json.dumps({"event": "vehicle", "data": {
-                "vehicle": total_k_besar, "iot_token": "db538ac102672774aec1931add33d5aa46e76e2401a79337216c40144634a82b"}}))
-        ws.run_forever()
 
         if not FLAGS.dont_show:
             cv2.imshow("Output Video", result)
