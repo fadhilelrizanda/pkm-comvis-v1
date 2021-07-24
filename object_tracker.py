@@ -41,12 +41,13 @@ def on_close(ws, close_status_code, close_msg):
     print("### closed ###")
 
 
-def on_open(ws, i):
+def on_open(ws):
     def run(*args):
+        i = 3
         ws.send(json.dumps({"event": "vehicle", "data": {
-                "vehicle": i, "iot_token": "db538ac102672774aec1931add33d5aa46e76e2401a79337216c40144634a82b"}}))
-        ws.close()
+            "vehicle": i, "iot_token": "db538ac102672774aec1931add33d5aa46e76e2401a79337216c40144634a82b"}}))
         print("thread terminating...")
+
     thread.start_new_thread(run, ())
 
 
@@ -92,6 +93,11 @@ def vector_vehicle(point_A, Point_B):
 def main(_argv):
     # Websocket
     websocket.enableTrace(True)
+    ws = websocket.WebSocketApp("wss://sipejam-restfullapi.herokuapp.com",
+                                on_open=on_open,
+                                on_message=on_message,
+                                on_error=on_error,
+                                on_close=on_close)
 
     # Definition of the parameters
     max_cosine_distance = 0.4
@@ -366,12 +372,8 @@ def main(_argv):
         result = np.asarray(frame)
         result = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
 
-        ws = websocket.WebSocketApp("wss://sipejam-restfullapi.herokuapp.com",
-                                    on_open=on_open(ws, total_count),
-                                    on_message=on_message,
-                                    on_error=on_error,
-                                    on_close=on_close)
-
+        ws.send(json.dumps({"event": "vehicle", "data": {
+                "vehicle": total_k_besar, "iot_token": "db538ac102672774aec1931add33d5aa46e76e2401a79337216c40144634a82b"}}))
         ws.run_forever()
 
         if not FLAGS.dont_show:
