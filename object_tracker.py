@@ -49,7 +49,7 @@ total_k_kecil = int(0)
 
 def on_open(ws):
     def run(*args):
-
+        global total_k_kecil
         ws.send(json.dumps({"event": "vehicle_1", "data": {
                 "vehicle": total_k_kecil, "iot_token": "057110891c54543e9b645c8aaa65d25ea6c27f5d8e620fafb98e5aff9fbbf7f3"}}))
         time.sleep(1)
@@ -98,8 +98,10 @@ def vector_vehicle(point_A, Point_B):
 
 
 def main(_argv):
+    current_time = time.time()
+    global total_k_kecil
     # Websocket
-
+    websocket.enableTrace(True)
     # Definition of the parameters
     max_cosine_distance = 0.4
     nn_budget = None
@@ -357,6 +359,7 @@ def main(_argv):
         total_count = len(set(counter))
         total_k_kecil = len(set(kendaraan_kecil_count))
         total_k_besar = len(set(kendaraan_besar_count))
+        print(total_k_kecil)
 
         cv2.putText(frame, "Total Kendaraan: " +
                     str(total_count), (0, 100), 0, 1, (255, 255, 255), 2)
@@ -372,7 +375,14 @@ def main(_argv):
                     (0, 50), 0, 1, (0, 0, 255), 2)
         result = np.asarray(frame)
         result = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
-
+        if time.time() - current_time > 20:
+            ws = websocket.WebSocketApp("wss://sipejam-restfullapi.herokuapp.com",
+                                        on_open=on_open,
+                                        on_message=on_message,
+                                        on_error=on_error,
+                                        on_close=on_close)
+            ws.run_forever()
+            current_time = time.time()
         if not FLAGS.dont_show:
             cv2.imshow("Output Video", result)
 
