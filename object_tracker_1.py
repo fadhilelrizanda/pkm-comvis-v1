@@ -597,9 +597,6 @@ def main(_argv):
     cv2.destroyAllWindows()
 
 
-# Function 2
-
-
 if __name__ == '__main__':
     try:
         app.run(main)
