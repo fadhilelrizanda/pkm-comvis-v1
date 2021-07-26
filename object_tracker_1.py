@@ -22,9 +22,6 @@ import math
 
 import json
 
-import threading
-
-
 import websocket
 import time
 
@@ -101,89 +98,101 @@ def vector_vehicle(point_A, Point_B):
 
 
 def main(_argv):
-    def detection_1():
-        current_time = time.time()
-        global total_k_kecil
-        # Websocket
-        websocket.enableTrace(True)
-        # Definition of the parameters
-        max_cosine_distance = 0.4
-        nn_budget = None
-        nms_max_overlap = 0.5
+    current_time = time.time()
+    global total_k_kecil
+    # Websocket
+    websocket.enableTrace(True)
+    # Definition of the parameters
+    max_cosine_distance = 0.4
+    nn_budget = None
+    nms_max_overlap = 0.5
 
-        # initialize deep sort
-        model_filename = 'model_data/mars-small128.pb'
-        encoder = gdet.create_box_encoder(model_filename, batch_size=1)
-        # calculate cosine distance metric
-        metric = nn_matching.NearestNeighborDistanceMetric(
-            "cosine", max_cosine_distance, nn_budget)
-        # initialize tracker
-        tracker = Tracker(metric)
+    # initialize deep sort
+    model_filename = 'model_data/mars-small128.pb'
+    encoder = gdet.create_box_encoder(model_filename, batch_size=1)
+    # calculate cosine distance metric
+    metric = nn_matching.NearestNeighborDistanceMetric(
+        "cosine", max_cosine_distance, nn_budget)
+    # initialize tracker
+    tracker = Tracker(metric)
 
-        # load configuration for object detector
-        config = ConfigProto()
-        config.gpu_options.allow_growth = True
-        session = InteractiveSession(config=config)
-        STRIDES, ANCHORS, NUM_CLASS, XYSCALE = utils.load_config(FLAGS)
-        input_size = FLAGS.size
-        video_path = FLAGS.video
+    # load configuration for object detector
+    config = ConfigProto()
+    config.gpu_options.allow_growth = True
+    session = InteractiveSession(config=config)
+    STRIDES, ANCHORS, NUM_CLASS, XYSCALE = utils.load_config(FLAGS)
+    input_size = FLAGS.size
+    video_path = FLAGS.video
 
-        # For Gate (Counter)
-        pts = [deque(maxlen=30) for _ in range(1000)]
-        counter = []
-        kendaraan_kecil_count = []
-        kendaraan_besar_count = []
-        memory = {}
-        # temporary memory for storing counted IDs
-        already_counted = deque(maxlen=50)
-        up_count = int(0)
-        down_count = int(0)
-        line_1_point_x = int(278)
-        line_1_point_y = int(423)
-        line_2_point_x = int(912)
-        line_2_point_y = int(397)
+    # For Gate (Counter)
+    pts = [deque(maxlen=30) for _ in range(1000)]
+    counter = []
+    kendaraan_kecil_count = []
+    kendaraan_besar_count = []
+    memory = {}
+    # temporary memory for storing counted IDs
+    already_counted = deque(maxlen=50)
+    up_count = int(0)
+    down_count = int(0)
+    line_1_point_x = int(278)
+    line_1_point_y = int(423)
+    line_2_point_x = int(912)
+    line_2_point_y = int(397)
 
-        # load tflite model if flag is set
-        if FLAGS.framework == 'tflite':
-            interpreter = tf.lite.Interpreter(model_path=FLAGS.weights)
-            interpreter.allocate_tensors()
-            input_details = interpreter.get_input_details()
-            output_details = interpreter.get_output_details()
-            print(input_details)
-            print(output_details)
-        # otherwise load standard tensorflow saved model
-        else:
-            saved_model_loaded = tf.saved_model.load(
-                FLAGS.weights, tags=[tag_constants.SERVING])
-            infer = saved_model_loaded.signatures['serving_default']
+    # load tflite model if flag is set
+    if FLAGS.framework == 'tflite':
+        interpreter = tf.lite.Interpreter(model_path=FLAGS.weights)
+        interpreter.allocate_tensors()
+        input_details = interpreter.get_input_details()
+        output_details = interpreter.get_output_details()
+        print(input_details)
+        print(output_details)
+    # otherwise load standard tensorflow saved model
+    else:
+        saved_model_loaded = tf.saved_model.load(
+            FLAGS.weights, tags=[tag_constants.SERVING])
+        infer = saved_model_loaded.signatures['serving_default']
 
-        # begin video capture
-        try:
-            vid = cv2.VideoCapture(int(video_path))
-        except:
-            vid = cv2.VideoCapture(video_path)
+    # begin video capture
+    try:
+        vid = cv2.VideoCapture(int(video_path))
+        vid2 = cv2.VideoCapture(int('/data/video/cars.mp4'))
+    except:
+        vid = cv2.VideoCapture(video_path)
+        vid2 = cv2.VideoCapture('/data/video/cars.mp4')
 
-        out = None
+    out = None
+    out2 = None
 
-        # get video ready to save locally if flag is set
-        if FLAGS.output:
-            # by default VideoCapture returns float instead of int
-            width = int(vid.get(cv2.CAP_PROP_FRAME_WIDTH))
-            height = int(vid.get(cv2.CAP_PROP_FRAME_HEIGHT))
-            fps = int(vid.get(cv2.CAP_PROP_FPS))
-            codec = cv2.VideoWriter_fourcc(*FLAGS.output_format)
-            out = cv2.VideoWriter(FLAGS.output, codec, fps, (width, height))
+    # get video ready to save locally if flag is set
+    if FLAGS.output:
+        # by default VideoCapture returns float instead of int
+        width = int(vid.get(cv2.CAP_PROP_FRAME_WIDTH))
+        height = int(vid.get(cv2.CAP_PROP_FRAME_HEIGHT))
+        fps = int(vid.get(cv2.CAP_PROP_FPS))
+        codec = cv2.VideoWriter_fourcc(*FLAGS.output_format)
+        out = cv2.VideoWriter(FLAGS.output, codec, fps, (width, height))
 
-        frame_num = 0
-        # while video is running
-        while True:
+        # Second Camera
+        width_2 = int(vid2.get(cv2.CAP_PROP_FRAME_WIDTH))
+        height_2 = int(vid2.get(cv2.CAP_PROP_FRAME_HEIGHT))
+        fps_2 = int(vid2.get(cv2.CAP_PROP_FPS))
+        codec_2 = cv2.VideoWriter_fourcc(*FLAGS.output_format)
+        out_2 = cv2.VideoWriter('tracker_2.avi', codec_2,
+                                fps_2, (width_2, height_2))
+    frame_num = 0
+    frame_num_2 = 0
+    # while video is running
+    while True:
+        def detection_1():
+            #Define Global Variable
             return_value, frame = vid.read()
             if return_value:
                 frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
                 image = Image.fromarray(frame)
             else:
                 print('Video has ended or failed, try a different video format!')
-                break
+                return False
             frame_num += 1
             print('Frame #: ', frame_num)
             frame_size = frame.shape[:2]
@@ -394,94 +403,18 @@ def main(_argv):
             if FLAGS.output:
                 out.write(result)
             if cv2.waitKey(1) & 0xFF == ord('q'):
-                break
-        cv2.destroyAllWindows()
+                return False
 
-    def detection_2():
-        current_time = time.time()
-        global total_k_kecil
-        # Websocket
-        websocket.enableTrace(True)
-        # Definition of the parameters
-        max_cosine_distance = 0.4
-        nn_budget = None
-        nms_max_overlap = 0.5
-
-        # initialize deep sort
-        model_filename = 'model_data/mars-small128.pb'
-        encoder = gdet.create_box_encoder(model_filename, batch_size=1)
-        # calculate cosine distance metric
-        metric = nn_matching.NearestNeighborDistanceMetric(
-            "cosine", max_cosine_distance, nn_budget)
-        # initialize tracker
-        tracker = Tracker(metric)
-
-        # load configuration for object detector
-        config = ConfigProto()
-        config.gpu_options.allow_growth = True
-        session = InteractiveSession(config=config)
-        STRIDES, ANCHORS, NUM_CLASS, XYSCALE = utils.load_config(FLAGS)
-        input_size = FLAGS.size
-        video_path = FLAGS.video
-
-        # For Gate (Counter)
-        pts = [deque(maxlen=30) for _ in range(1000)]
-        counter = []
-        kendaraan_kecil_count = []
-        kendaraan_besar_count = []
-        memory = {}
-        # temporary memory for storing counted IDs
-        already_counted = deque(maxlen=50)
-        up_count = int(0)
-        down_count = int(0)
-        line_1_point_x = int(278)
-        line_1_point_y = int(423)
-        line_2_point_x = int(912)
-        line_2_point_y = int(397)
-
-        # load tflite model if flag is set
-        if FLAGS.framework == 'tflite':
-            interpreter = tf.lite.Interpreter(model_path=FLAGS.weights)
-            interpreter.allocate_tensors()
-            input_details = interpreter.get_input_details()
-            output_details = interpreter.get_output_details()
-            print(input_details)
-            print(output_details)
-        # otherwise load standard tensorflow saved model
-        else:
-            saved_model_loaded = tf.saved_model.load(
-                FLAGS.weights, tags=[tag_constants.SERVING])
-            infer = saved_model_loaded.signatures['serving_default']
-
-        # begin video capture
-        try:
-            vid = cv2.VideoCapture(int('/data/video/cars.mp4'))
-        except:
-            vid = cv2.VideoCapture('/data/video/cars.mp4')
-
-        out = None
-
-        # get video ready to save locally if flag is set
-        if FLAGS.output:
-            # by default VideoCapture returns float instead of int
-            width = int(vid.get(cv2.CAP_PROP_FRAME_WIDTH))
-            height = int(vid.get(cv2.CAP_PROP_FRAME_HEIGHT))
-            fps = int(vid.get(cv2.CAP_PROP_FPS))
-            codec = cv2.VideoWriter_fourcc(*FLAGS.output_format)
-            out = cv2.VideoWriter('tracker_2.avi', codec, fps, (width, height))
-
-        frame_num = 0
-        # while video is running
-        while True:
-            return_value, frame = vid.read()
+        def detection_2():
+            return_value, frame = vid2.read()
             if return_value:
                 frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
                 image = Image.fromarray(frame)
             else:
                 print('Video has ended or failed, try a different video format!')
-                break
-            frame_num += 1
-            print('Frame #: ', frame_num)
+                return False
+            frame_num_2 += 1
+            print('Frame #: ', frame_num_2)
             frame_size = frame.shape[:2]
             image_data = cv2.resize(frame, (input_size, input_size))
             image_data = image_data / 255.
@@ -661,15 +594,15 @@ def main(_argv):
             total_k_besar = len(set(kendaraan_besar_count))
             print(total_k_kecil)
 
-            cv2.putText(frame, "b_Total Kendaraan: " +
+            cv2.putText(frame, "Total Kendaraan: " +
                         str(total_count), (0, 100), 0, 1, (255, 255, 255), 2)
-            cv2.putText(frame, "b_Kendaraan Kecil: " +
+            cv2.putText(frame, "Kendaraan Kecil: " +
                         str(total_k_kecil), (0, 150), 0, 1, (255, 255, 255), 2)
-            cv2.putText(frame, "b_Kendaraan Besar: " +
+            cv2.putText(frame, "Kendaraan Besar: " +
                         str(total_k_besar), (0, 200), 0, 1, (255, 255, 255), 2)
-            cv2.putText(frame, "b_Kendaraan Up: " +
+            cv2.putText(frame, "Kendaraan Up: " +
                         str(up_count), (0, 250), 0, 1, (255, 255, 255), 2)
-            cv2.putText(frame, "b_Kendaraan Down: " +
+            cv2.putText(frame, "Kendaraan Down: " +
                         str(down_count), (0, 300), 0, 1, (255, 255, 255), 2)
             cv2.putText(frame, "FPS : " + str(int(fps)),
                         (0, 50), 0, 1, (0, 0, 255), 2)
@@ -688,16 +621,14 @@ def main(_argv):
 
             # if output flag is set, save video file
             if FLAGS.output:
-                out.write(result)
+                out_2.write(result)
             if cv2.waitKey(1) & 0xFF == ord('q'):
-                break
-        cv2.destroyAllWindows()
+                return False
 
-    thread1 = threading.Thread(target=detection_1)
-    thread2 = threading.Thread(target=detection_2)
+        if detection_1() == False:
+            break
 
-    thread1.start()
-    thread2.start()
+    cv2.destroyAllWindows()
 
 
 if __name__ == '__main__':
