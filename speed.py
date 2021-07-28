@@ -134,15 +134,15 @@ def main(_argv):
     already_counted = deque(maxlen=50)
     up_count = int(0)
     down_count = int(0)
-    line_1_point_x = int(396)
-    line_1_point_y = int(366)
-    line_2_point_x = int(870)
-    line_2_point_y = int(368)
+    line_1_point_x = int(643)
+    line_1_point_y = int(444)
+    line_2_point_x = int(224)
+    line_2_point_y = int(444)
 
-    line_1_point_x_2 = int(337)
-    line_1_point_y_2 = int(406)
-    line_2_point_x_2 = int(935)
-    line_2_point_y_2 = int(411)
+    # line_1_point_x_2 = int(189)
+    # line_1_point_y_2 = int(568)
+    # line_2_point_x_2 = int(554)
+    # line_2_point_y_2 = int(568)
 
     # load tflite model if flag is set
     if fflags.framework == 'tflite':
@@ -331,19 +331,11 @@ def main(_argv):
             line = [(line_1_point_x, line_1_point_y),
                     (line_2_point_x, line_2_point_y)]
 
-            line2 = [(line_1_point_x_2, line_1_point_y_2),
-                     (line_2_point_x_2, line_2_point_y_2)]
-            cv2.line(frame, (line_1_point_x, line_1_point_y),
-                     (line_2_point_x, line_2_point_y), (0, 255, 0), thickness=4)
-
-            cv2.line(frame, (line_1_point_x_2, line_1_point_y_2),
-                     (line_2_point_x_2, line_2_point_y_2), (0, 255, 255), thickness=4)
+            # line_2 = [(line_1_point_x_2, line_1_point_y_2),
+            #         (line_2_point_x_2, line_2_point_y_2)]
 
             if intersect(current_point, previous_point, line[0], line[1]) and track.track_id not in already_counted:
                 if class_name == 'kendaraan_kecil' or class_name == 'kendaraan_besar':
-                    time_speed = time.time()
-                    dict_speed = {}
-                    dict_speed[track.track_id] = time_speed
                     counter.append(int(track.track_id))
                     if class_name == 'kendaraan_kecil':
                         kendaraan_kecil_count.append(int(track.track_id))
@@ -361,10 +353,8 @@ def main(_argv):
                     if angle < 0:
                         up_count += 1
 
-            if intersect(current_point, previous_point, line2[0], line2[1]):
-                speed = 5 (time.time() - dict_speed[track.track_id])
-                print("Speed : " + str(speed))
-
+            # if intersect(current_point, previous_point, line[0], line[1]) and track.track_id in already_counted:
+            #     print("speedd")
             if len(memory) > 50:
                 del memory[list(memory)[0]]
 
@@ -378,6 +368,7 @@ def main(_argv):
         total_k_kecil = len(set(kendaraan_kecil_count))
         total_k_besar = len(set(kendaraan_besar_count))
         print(total_k_kecil)
+        print(total_k_besar)
 
         cv2.putText(frame, "Total Kendaraan: " +
                     str(total_count), (0, 100), 0, 1, (255, 255, 255), 2)
@@ -391,6 +382,10 @@ def main(_argv):
                     str(down_count), (0, 300), 0, 1, (255, 255, 255), 2)
         cv2.putText(frame, "FPS : " + str(int(fps)),
                     (0, 50), 0, 1, (0, 0, 255), 2)
+        cv2.line(frame, (line_1_point_x, line_1_point_y),
+                 (line_2_point_x, line_2_point_y), (0, 255, 0), thickness=4)
+        # cv2.line(frame, (line_1_point_x_2, line_1_point_y_2),
+        #          (line_2_point_x_2, line_2_point_y_2), (255, 0, 0), thickness=4)
         result = np.asarray(frame)
         result = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
         # if time.time() - current_time > 20:
