@@ -1,10 +1,16 @@
-import object_tracker_1
-import object_tracker_2
-import threading
+
+import multiprocessing
+import os
+
+# Creating the tuple of all the processes
+all_processes = ('object_tracker_1.py', 'object_tracker_2.py')
+
+# This block of code enables us to call the script from command line.
 
 
-if __name__ == '__main__':
-    thread1 = threading.Thread(target=object_tracker_1.main())
-    thread2 = threading.Thread(target=object_tracker_2.main())
-    thread1.start()
-    thread2.start()
+def execute(process):
+    os.system(f'python {process}')
+
+
+process_pool = multiprocessing.Pool(processes=4)
+process_pool.map(execute, all_processes)

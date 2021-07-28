@@ -1,21 +1,34 @@
-import threading
-import time
+# importing the multiprocessing module
+import multiprocessing
 
 
-def infiniteloop1():
-    while True:
-        print('Loop 1')
-        time.sleep(1)
+def print_cube(i):
+    """
+    function to print cube of given num
+    """
+    for x in range(i):
+        print(x)
 
 
-def infiniteloop2():
-    while True:
-        print('Loop 2')
-        time.sleep(1)
+def print_square(i):
+    for x in range(i):
+        print(x)
 
 
-thread1 = threading.Thread(target=infiniteloop1)
-thread1.start()
+if __name__ == "__main__":
+    # creating processes
+    p1 = multiprocessing.Process(target=print_square, args=(20, ))
+    p2 = multiprocessing.Process(target=print_cube, args=(10, ))
 
-thread2 = threading.Thread(target=infiniteloop2)
-thread2.start()
+    # starting process 1
+    p1.start()
+    # starting process 2
+    p2.start()
+
+    # wait until process 1 is finished
+    p1.join()
+    # wait until process 2 is finished
+    p2.join()
+
+    # both processes finished
+    print("Done!")

@@ -256,8 +256,8 @@ def main(_argv):
         names = np.array(names)
         count = len(names)
         if FLAGS.count:
-            cv2.putText(frame, "Objects being tracked: {}".format(
-                count), (5, 35), cv2.FONT_HERSHEY_COMPLEX_SMALL, 2, (0, 255, 0), 2)
+            # cv2.putText(frame, "Objects being tracked: {}".format(
+            #     count), (5, 35), cv2.FONT_HERSHEY_COMPLEX_SMALL, 2, (0, 255, 0), 2)
             print("Objects being tracked: {}".format(count))
         # delete detections that are not in allowed_classes
         bboxes = np.delete(bboxes, deleted_indx, axis=0)
@@ -372,7 +372,7 @@ def main(_argv):
         cv2.putText(frame, "Kendaraan Down: " +
                     str(down_count), (0, 300), 0, 1, (255, 255, 255), 2)
         cv2.putText(frame, "FPS : " + str(int(fps)),
-                    (0, 50), 0, 1, (0, 0, 255), 2)
+                    (0, 50), 0, 1, (255, 255, 255), 2)
         result = np.asarray(frame)
         result = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
         if time.time() - current_time > 20:

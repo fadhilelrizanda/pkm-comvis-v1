@@ -78,9 +78,9 @@ flags.DEFINE_string('output_format', 'mp4v',
                     'codec used in VideoWriter when saving video to file')
 flags.DEFINE_float('iou', 0.45, 'iou threshold')
 flags.DEFINE_float('score', 0.50, 'score threshold')
-flags.DEFINE_boolean('dont_show', False, 'dont show video output')
-flags.DEFINE_boolean('info', False, 'show detailed info of tracked objects')
-flags.DEFINE_boolean('count', False, 'count objects being tracked on screen')
+flags.DEFINE_boolean('dont_show', True, 'dont show video output')
+flags.DEFINE_boolean('info', True, 'show detailed info of tracked objects')
+flags.DEFINE_boolean('count', True, 'count objects being tracked on screen')
 
 
 def intersect(current_point, prev_point, point_line_1, point_line_2):
@@ -99,7 +99,6 @@ def vector_vehicle(point_A, Point_B):
 
 def main(_argv):
     current_time = time.time()
-    current_time_2 = time.time()
     global total_k_kecil
     # Websocket
     websocket.enableTrace(True)
@@ -116,7 +115,6 @@ def main(_argv):
         "cosine", max_cosine_distance, nn_budget)
     # initialize tracker
     tracker = Tracker(metric)
-    tracker_2 = Tracker(metric)
 
     # load configuration for object detector
     config = ConfigProto()
@@ -128,26 +126,14 @@ def main(_argv):
 
     # For Gate (Counter)
     pts = [deque(maxlen=30) for _ in range(1000)]
-    pts_2 = [deque(maxlen=30) for _ in range(1000)]
     counter = []
-    counter_2 = []
     kendaraan_kecil_count = []
     kendaraan_besar_count = []
-
-    kendaraan_kecil_count_2 = []
-    kendaraan_besar_count_2 = []
-
     memory = {}
-    memory_2 = {}
     # temporary memory for storing counted IDs
     already_counted = deque(maxlen=50)
     up_count = int(0)
     down_count = int(0)
-
-    already_counted_2 = deque(maxlen=50)
-    up_count_2 = int(0)
-    down_count_2 = int(0)
-
     line_1_point_x = int(278)
     line_1_point_y = int(423)
     line_2_point_x = int(912)
@@ -170,13 +156,10 @@ def main(_argv):
     # begin video capture
     try:
         vid = cv2.VideoCapture(int(video_path))
-        vid_2 = cv2.VideoCapture(int('/data/video/cars.mp4'))
     except:
         vid = cv2.VideoCapture(video_path)
-        vid2 = cv2.VideoCapture("/data/video/cars.mp4")
 
     out = None
-    out_2 = None
 
     # get video ready to save locally if flag is set
     if FLAGS.output:
@@ -187,47 +170,23 @@ def main(_argv):
         codec = cv2.VideoWriter_fourcc(*FLAGS.output_format)
         out = cv2.VideoWriter(FLAGS.output, codec, fps, (width, height))
 
-        # Second Camera
-        width_2 = int(vid2.get(cv2.CAP_PROP_FRAME_WIDTH))
-        height_2 = int(vid2.get(cv2.CAP_PROP_FRAME_HEIGHT))
-        fps_2 = int(vid2.get(cv2.CAP_PROP_FPS))
-        codec_2 = cv2.VideoWriter_fourcc(*FLAGS.output_format)
-        out_2 = cv2.VideoWriter('tracker.avi', codec, fps, (width, height))
-
-    frame_num_1 = 0
-    frame_num_2 = 0
+    frame_num = 0
     # while video is running
     while True:
         return_value, frame = vid.read()
         if return_value:
             frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             image = Image.fromarray(frame)
-
-        return_value_2, frame_2 = vid2.read()
-        if return_value_2:
-            frame_2 = cv2.cvtColor(frame_2, cv2.COLOR_BGR2RGB)
-            image_2 = Image.fromarray(frame_2)
-
-        if return_value and return_value_2 == False:
+        else:
+            print('Video has ended or failed, try a different video format!')
             break
-
-        frame_num_1 += 1
-        frame_num_2 += 1
-
-        print('Frame #: ', frame_num_1)
-        print('Frame % :', frame_num_2)
-
+        frame_num += 1
+        print('Frame #: ', frame_num)
         frame_size = frame.shape[:2]
         image_data = cv2.resize(frame, (input_size, input_size))
         image_data = image_data / 255.
         image_data = image_data[np.newaxis, ...].astype(np.float32)
         start_time = time.time()
-
-        frame_size_2 = frame_2.shape[:2]
-        image_data_2 = cv2.resize(frame_2, (input_size, input_size))
-        image_data_2 = image_data_2 / 255.
-        image_data_2 = image_data_2[np.newaxis, ...].astype(np.float32)
-        start_time_2 = time.time()
 
         # run detections on tflite if flag is set
         if FLAGS.framework == 'tflite':
@@ -249,26 +208,10 @@ def main(_argv):
                 boxes = value[:, :, 0:4]
                 pred_conf = value[:, :, 4:]
 
-            batch_data_2 = tf.constant(image_data_2)
-            pred_bbox_2 = infer(batch_data_2)
-            for key, value in pred_bbox_2.items():
-                boxes_2 = value[:, :, 0:4]
-                pred_conf_2 = value[:, :, 4:]
-
         boxes, scores, classes, valid_detections = tf.image.combined_non_max_suppression(
             boxes=tf.reshape(boxes, (tf.shape(boxes)[0], -1, 1, 4)),
             scores=tf.reshape(
                 pred_conf, (tf.shape(pred_conf)[0], -1, tf.shape(pred_conf)[-1])),
-            max_output_size_per_class=50,
-            max_total_size=50,
-            iou_threshold=FLAGS.iou,
-            score_threshold=FLAGS.score
-        )
-
-        boxes_2, scores_2, classes_2, valid_detections_2 = tf.image.combined_non_max_suppression(
-            boxes=tf.reshape(boxes_2, (tf.shape(boxes_2)[0], -1, 1, 4)),
-            scores=tf.reshape(
-                pred_conf_2, (tf.shape(pred_conf_2)[0], -1, tf.shape(pred_conf_2)[-1])),
             max_output_size_per_class=50,
             max_total_size=50,
             iou_threshold=FLAGS.iou,
@@ -284,32 +227,18 @@ def main(_argv):
         classes = classes.numpy()[0]
         classes = classes[0:int(num_objects)]
 
-        num_objects_2 = valid_detections.numpy()[0]
-        bboxes_2 = boxes_2.numpy()[0]
-        bboxes_2 = bboxes_2[0:int(num_objects_2)]
-        scores_2 = scores_2.numpy()[0]
-        scores_2 = scores_2[0:int(num_objects_2)]
-        classes_2 = classes_2.numpy()[0]
-        classes_2 = classes_2[0:int(num_objects_2)]
-
         # format bounding boxes from normalized ymin, xmin, ymax, xmax ---> xmin, ymin, width, height
         original_h, original_w, _ = frame.shape
         bboxes = utils.format_boxes(bboxes, original_h, original_w)
 
-        original_h_2, original_w_2, _ = frame_2.shape
-        bboxes_2 = utils.format_boxes(bboxes_2, original_h_2, original_w_2)
-
         # store all predictions in one parameter for simplicity when calling functions
         pred_bbox = [bboxes, scores, classes, num_objects]
 
-        pred_bbox_2 = [bboxes_2, scores_2, classes_2, num_objects_2]
         # read in all class names from config
         class_names = utils.read_class_names(cfg.YOLO.CLASSES)
-        class_names_2 = utils.read_class_names(cfg.YOLO.CLASSES)
 
         # by default allow all classes in .names file
         allowed_classes = list(class_names.values())
-        allowed_classes_2 = list(class_names.values())
 
         # custom allowed classes (uncomment line below to customize tracker for only people)
         # allowed_classes = ['person']
@@ -317,58 +246,31 @@ def main(_argv):
         # loop through objects and use class index to get class name, allow only classes in allowed_classes list
         names = []
         deleted_indx = []
-
-        names_2 = []
-        deleted_indx_2 = []
-
         for i in range(num_objects):
-            class_indx_2 = int(classes_2[i])
-            class_name = class_names[class_indx_2]
+            class_indx = int(classes[i])
+            class_name = class_names[class_indx]
             if class_name not in allowed_classes:
                 deleted_indx.append(i)
             else:
                 names.append(class_name)
         names = np.array(names)
         count = len(names)
-
-        for i in range(num_objects_2):
-            class_indx_2 = int(classes_2[i])
-            class_name_2 = class_names_2[class_indx_2]
-            if class_name_2 not in allowed_classes_2:
-                deleted_indx_2.append(i)
-            else:
-                names_2.append(class_name)
-        names_2 = np.array(names)
-        count_2 = len(names)
         if FLAGS.count:
             cv2.putText(frame, "Objects being tracked: {}".format(
                 count), (5, 35), cv2.FONT_HERSHEY_COMPLEX_SMALL, 2, (0, 255, 0), 2)
             print("Objects being tracked: {}".format(count))
-
-            cv2.putText(frame_2, "Objects being tracked: {}".format(
-                count_2), (5, 35), cv2.FONT_HERSHEY_COMPLEX_SMALL, 2, (0, 255, 0), 2)
-            print("Objects being tracked: {}".format(count_2))
-
         # delete detections that are not in allowed_classes
         bboxes = np.delete(bboxes, deleted_indx, axis=0)
         scores = np.delete(scores, deleted_indx, axis=0)
-
-        bboxes_2 = np.delete(bboxes_2, deleted_indx_2, axis=0)
-        scores_2 = np.delete(scores_2, deleted_indx_2, axis=0)
 
         # encode yolo detections and feed to tracker
         features = encoder(frame, bboxes)
         detections = [Detection(bbox, score, class_name, feature) for bbox,
                       score, class_name, feature in zip(bboxes, scores, names, features)]
-        features_2 = encoder(frame_2, bboxes_2)
-        detections_2 = [Detection(bbox_2, score_2, class_name_2, feature_2) for bbox_2,
-                        score_2, class_name_2, feature_2 in zip(bboxes_2, scores_2, names_2, features_2)]
+
         # initialize color map
         cmap = plt.get_cmap('tab20b')
         colors = [cmap(i)[:3] for i in np.linspace(0, 1, 20)]
-
-        cmap_2 = plt.get_cmap('tab20b')
-        colors_2 = [cmap(i)[:3] for i in np.linspace(0, 1, 20)]
 
         # run non-maxima supression
         boxs = np.array([d.tlwh for d in detections])
@@ -378,24 +280,12 @@ def main(_argv):
             boxs, classes, nms_max_overlap, scores)
         detections = [detections[i] for i in indices]
 
-        boxs_2 = np.array([d.tlwh for d in detections_2])
-        scores_2 = np.array([d.confidence for d in detections_2])
-        classes_2 = np.array([d.class_name for d in detections_2])
-        indices_2 = preprocessing.non_max_suppression(
-            boxs_2, classes_2, nms_max_overlap, scores_2)
-        detections_2 = [detections_2[i] for i in indices_2]
-
         # Call the tracker
         tracker.predict()
         tracker.update(detections)
 
-        tracker_2.predict()
-        tracker_2.update(detections_2)
-
         fps = 1.0 / (time.time() - start_time)
         print("FPS: %.2f" % fps)
-        fps_2 = 1.0 / (time.time() - start_time_2)
-        print("FPS_2: %.2f" % fps_2)
 
         # update tracks
         for track in tracker.tracks:
@@ -460,68 +350,6 @@ def main(_argv):
             if len(memory) > 50:
                 del memory[list(memory)[0]]
 
-        for track_2 in tracker_2.tracks:
-            if not track_2.is_confirmed() or track_2.time_since_update > 1:
-                continue
-            bbox_2 = track_2.to_tlbr()
-            class_name_2 = track_2.get_class()
-            if track_2.track_id not in memory_2:
-                memory_2[track_2.track_id] = deque(maxlen=2)
-
-                # draw bbox on screen
-            color_2 = colors_2[int(track.track_id) % len(colors_2)]
-            color_2 = [i * 255 for i in color_2]
-            cv2.rectangle(frame_2, (int(bbox_2[0]), int(
-                bbox_2[1])), (int(bbox_2[2]), int(bbox_2[3])), color_2, 2)
-            cv2.rectangle(frame_2, (int(bbox_2[0]), int(bbox_2[1]-30)), (int(bbox_2[0])+(
-                len(class_name_2)+len(str(track_2.track_id)))*17, int(bbox_2[1])), color_2, -1)
-            cv2.putText(frame_2, class_name_2 + "-" + str(track_2.track_id),
-                        (int(bbox_2[0]), int(bbox_2[1]-10)), 0, 0.75, (255, 255, 255), 2)
-
-            center_2 = (int(((bbox_2[0]) + (bbox_2[2]))/2),
-                        int(((bbox_2[1])+(bbox_2[3]))/2))
-            pts_2[track_2.track_id].append(center_2)
-
-            for j in range(1, len(pts_2[track_2.track_id])):
-                if pts_2[track_2.track_id][j-1] is None or pts[track_2.track_id][j] is None:
-                    continue
-                thickness = int(np.sqrt(64/float(j+1))*2)
-                cv2.line(frame_2, (pts_2[track_2.track_id][j-1]),
-                         (pts_2[track_2.track_id][j]), color_2, thickness)
-
-            center_y_2 = int(((bbox_2[1])+(bbox_2[3]))/2)
-            center_x_2 = int(((bbox_2[0])+(bbox_2[2]))/2)
-            current_point_2 = [center_x_2, center_y_2]
-            memory_2[track_2.track_id].append(current_point_2)
-            previous_point_2 = memory_2[track_2.track_id][0]
-
-            line_2 = [(line_1_point_x, line_1_point_y),
-                      (line_2_point_x, line_2_point_y)]
-            cv2.line(frame_2, (line_1_point_x, line_1_point_y),
-                     (line_2_point_x, line_2_point_y), (0, 255, 0), thickness=4)
-
-            if intersect(current_point_2, previous_point_2, line_2[0], line_2[1]) and track_2.track_id not in already_counted_2:
-                if class_name_2 == 'kendaraan_kecil' or class_name_2 == 'kendaraan_besar':
-                    counter_2.append(int(track_2.track_id))
-                    if class_name_2 == 'kendaraan_kecil':
-                        kendaraan_kecil_count_2.append(int(track_2.track_id))
-                    if class_name_2 == 'kendaraan_besar':
-                        kendaraan_besar_count_2.append(int(track_2.track_id))
-                    counter_2.append(int(track_2.track_id))
-
-                    already_counted_2.append(track_2.track_id)
-
-                    angle_2 = vector_vehicle(current_point_2, previous_point_2)
-
-                    if angle_2 > 0:
-                        down_count_2 += 1
-
-                    if angle_2 < 0:
-                        up_count_2 += 1
-
-            if len(memory_2) > 50:
-                del memory_2[list(memory_2)[0]]
-
         # if enable info flag then print details about each track
             if FLAGS.info:
                 print("Tracker ID: {}, Class: {},  BBox Coords (xmin, ymin, xmax, ymax): {}".format(
@@ -532,11 +360,6 @@ def main(_argv):
         total_k_kecil = len(set(kendaraan_kecil_count))
         total_k_besar = len(set(kendaraan_besar_count))
         print(total_k_kecil)
-
-        total_count_2 = len(set(counter_2))
-        total_k_kecil_2 = len(set(kendaraan_kecil_count_2))
-        total_k_besar_2 = len(set(kendaraan_besar_count_2))
-        print(total_k_kecil_2)
 
         cv2.putText(frame, "Total Kendaraan: " +
                     str(total_count), (0, 100), 0, 1, (255, 255, 255), 2)
@@ -560,38 +383,12 @@ def main(_argv):
                                         on_close=on_close)
             ws.run_forever()
             current_time = time.time()
-
-        cv2.putText(frame_2, "Total Kendaraan_2: " +
-                    str(total_count_2), (0, 100), 0, 1, (255, 255, 255), 2)
-        cv2.putText(frame_2, "Kendaraan Kecil_2: " +
-                    str(total_k_kecil_2), (0, 150), 0, 1, (255, 255, 255), 2)
-        cv2.putText(frame_2, "Kendaraan Besar_2: " +
-                    str(total_k_besar), (0, 200), 0, 1, (255, 255, 255), 2)
-        cv2.putText(frame_2, "Kendaraan Up_2: " +
-                    str(up_count_2), (0, 250), 0, 1, (255, 255, 255), 2)
-        cv2.putText(frame_2, "Kendaraan Down_2: " +
-                    str(down_count_2), (0, 300), 0, 1, (255, 255, 255), 2)
-        cv2.putText(frame_2, "FPS_2 : " + str(int(fps_2)),
-                    (0, 50), 0, 1, (0, 0, 255), 2)
-        result_2 = np.asarray(frame_2)
-        result_2 = cv2.cvtColor(frame_2, cv2.COLOR_RGB2BGR)
-        if time.time() - current_time_2 > 20:
-            ws = websocket.WebSocketApp("wss://sipejam-restfullapi.herokuapp.com",
-                                        on_open=on_open,
-                                        on_message=on_message,
-                                        on_error=on_error,
-                                        on_close=on_close)
-            ws.run_forever()
-            current_time_2 = time.time()
-
         if not FLAGS.dont_show:
             cv2.imshow("Output Video", result)
-            cv2.imshow("Output Video", result_2)
 
         # if output flag is set, save video file
         if FLAGS.output:
             out.write(result)
-            out_2.write(result_2)
         if cv2.waitKey(1) & 0xFF == ord('q'):
             break
     cv2.destroyAllWindows()
