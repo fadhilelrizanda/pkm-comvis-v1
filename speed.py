@@ -76,8 +76,8 @@ flags.DEFINE_string('video', './data/video/test.mp4',
 flags.DEFINE_string('output', None, 'path to output video')
 flags.DEFINE_string('output_format', 'mp4v',
                     'codec used in VideoWriter when saving video to file')
-flags.DEFINE_float('iou', 0.65, 'iou threshold')
-flags.DEFINE_float('score', 0.40, 'score threshold')
+flags.DEFINE_float('iou', 0.45, 'iou threshold')
+flags.DEFINE_float('score', 0.50, 'score threshold')
 flags.DEFINE_boolean('dont_show', True, 'dont show video output')
 flags.DEFINE_boolean('info', True, 'show detailed info of tracked objects')
 flags.DEFINE_boolean('count', True, 'count objects being tracked on screen')
@@ -105,7 +105,7 @@ def main(_argv):
     # Definition of the parameters
     max_cosine_distance = 0.4
     nn_budget = None
-    nms_max_overlap = 0.5
+    nms_max_overlap = 1.0
 
     # initialize deep sort
     model_filename = 'model_data/mars-small128.pb'
@@ -144,7 +144,7 @@ def main(_argv):
     line_2_point_x_2 = int(1001)
     line_2_point_y_2 = int(473)
 
-    speed = float(0)
+    speed = int(0)
     speed_dict = {}
     # load tflite model if flag is set
     if FLAGS.framework == 'tflite':
@@ -378,7 +378,7 @@ def main(_argv):
         cv2.putText(frame, "Kendaraan Down: " +
                     str(down_count), (0, 300), 0, 1, (255, 255, 255), 2)
         cv2.putText(frame, "Last Speed: " +
-                    str(speed), (0, 350), 0, 1, (255, 255, 255), 2)
+                    str(speed) + "m/s", (0, 350), 0, 1, (255, 255, 255), 2)
         cv2.putText(frame, "FPS : " + str(int(fps)),
                     (0, 50), 0, 1, (0, 0, 255), 2)
         cv2.line(frame, (line_1_point_x, line_1_point_y),
