@@ -248,7 +248,7 @@ def main(_argv):
         allowed_classes = list(class_names.values())
 
         # custom allowed classes (uncomment line below to customize tracker for only people)
-        # allowed_classes = ['person']
+        allowed_classes = ['car', 'truck', 'bus']
 
         # loop through objects and use class index to get class name, allow only classes in allowed_classes list
         names = []
@@ -335,21 +335,17 @@ def main(_argv):
 
             if (intersect(center, previous_point, line[0], line[1]) or intersect(center, previous_point, line_2[0], line_2[1])) and track.track_id not in already_counted:
 
-                if class_name == 'kendaraan_kecil' or class_name == 'kendaraan_besar':
+                if class_name == 'car' or class_name == 'truck' or class_name == 'bus':
                     counter.append(int(track.track_id))
-                    if class_name == 'kendaraan_kecil':
+                    if class_name == 'car':
                         kendaraan_kecil_count.append(int(track.track_id))
-                    if class_name == 'kendaraan_besar':
+                    if class_name == 'truck' or class_name == 'bus':
                         kendaraan_besar_count.append(int(track.track_id))
                     speed_dict[track.track_id] = time.time()
-
                     already_counted.append(track.track_id)
-
                     angle = vector_vehicle(center, previous_point)
-
                     if angle > 0:
                         down_count += 1
-
                     if angle < 0:
                         up_count += 1
 
