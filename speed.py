@@ -12,7 +12,7 @@ from core.config import cfg
 from tensorflow.python.saved_model import tag_constants
 from core.yolov4 import filter_boxes
 import core.utils as utils
-from absl.flags import FLAGS as fflags
+from absl.flags import FLAGS
 from absl import app, flags, logging
 import tensorflow as tf
 import time
@@ -76,8 +76,8 @@ flags.DEFINE_string('video', './data/video/test.mp4',
 flags.DEFINE_string('output', None, 'path to output video')
 flags.DEFINE_string('output_format', 'mp4v',
                     'codec used in VideoWriter when saving video to file')
-flags.DEFINE_float('iou', 0.45, 'iou threshold')
-flags.DEFINE_float('score', 0.50, 'score threshold')
+flags.DEFINE_float('iou', 0.65, 'iou threshold')
+flags.DEFINE_float('score', 0.40, 'score threshold')
 flags.DEFINE_boolean('dont_show', True, 'dont show video output')
 flags.DEFINE_boolean('info', True, 'show detailed info of tracked objects')
 flags.DEFINE_boolean('count', True, 'count objects being tracked on screen')
@@ -120,9 +120,9 @@ def main(_argv):
     config = ConfigProto()
     config.gpu_options.allow_growth = True
     session = InteractiveSession(config=config)
-    STRIDES, ANCHORS, NUM_CLASS, XYSCALE = utils.load_config(fflags)
-    input_size = fflags.size
-    video_path = fflags.video
+    STRIDES, ANCHORS, NUM_CLASS, XYSCALE = utils.load_config(FLAGS)
+    input_size = FLAGS.size
+    video_path = FLAGS.video
 
     # For Gate (Counter)
     pts = [deque(maxlen=30) for _ in range(1000)]
@@ -134,19 +134,21 @@ def main(_argv):
     already_counted = deque(maxlen=50)
     up_count = int(0)
     down_count = int(0)
-    line_1_point_x = int(643)
-    line_1_point_y = int(444)
-    line_2_point_x = int(224)
-    line_2_point_y = int(444)
+    line_1_point_x = int(278)
+    line_1_point_y = int(423)
+    line_2_point_x = int(912)
+    line_2_point_y = int(397)
 
-    # line_1_point_x_2 = int(189)
-    # line_1_point_y_2 = int(568)
-    # line_2_point_x_2 = int(554)
-    # line_2_point_y_2 = int(568)
+    line_1_point_x_2 = int(214)
+    line_1_point_y_2 = int(492)
+    line_2_point_x_2 = int(1001)
+    line_2_point_y_2 = int(473)
 
+    speed = float(0)
+    speed_dict = {}
     # load tflite model if flag is set
-    if fflags.framework == 'tflite':
-        interpreter = tf.lite.Interpreter(model_path=fflags.weights)
+    if FLAGS.framework == 'tflite':
+        interpreter = tf.lite.Interpreter(model_path=FLAGS.weights)
         interpreter.allocate_tensors()
         input_details = interpreter.get_input_details()
         output_details = interpreter.get_output_details()
@@ -155,7 +157,7 @@ def main(_argv):
     # otherwise load standard tensorflow saved model
     else:
         saved_model_loaded = tf.saved_model.load(
-            fflags.weights, tags=[tag_constants.SERVING])
+            FLAGS.weights, tags=[tag_constants.SERVING])
         infer = saved_model_loaded.signatures['serving_default']
 
     # begin video capture
@@ -167,13 +169,13 @@ def main(_argv):
     out = None
 
     # get video ready to save locally if flag is set
-    if fflags.output:
+    if FLAGS.output:
         # by default VideoCapture returns float instead of int
         width = int(vid.get(cv2.CAP_PROP_FRAME_WIDTH))
         height = int(vid.get(cv2.CAP_PROP_FRAME_HEIGHT))
         fps = int(vid.get(cv2.CAP_PROP_FPS))
-        codec = cv2.VideoWriter_fourcc(*fflags.output_format)
-        out = cv2.VideoWriter(fflags.output, codec, fps, (width, height))
+        codec = cv2.VideoWriter_fourcc(*FLAGS.output_format)
+        out = cv2.VideoWriter(FLAGS.output, codec, fps, (width, height))
 
     frame_num = 0
     # while video is running
@@ -186,7 +188,7 @@ def main(_argv):
             print('Video has ended or failed, try a different video format!')
             break
         frame_num += 1
-        print('Frame_2 #: ', frame_num)
+        print('Frame #: ', frame_num)
         frame_size = frame.shape[:2]
         image_data = cv2.resize(frame, (input_size, input_size))
         image_data = image_data / 255.
@@ -194,13 +196,13 @@ def main(_argv):
         start_time = time.time()
 
         # run detections on tflite if flag is set
-        if fflags.framework == 'tflite':
+        if FLAGS.framework == 'tflite':
             interpreter.set_tensor(input_details[0]['index'], image_data)
             interpreter.invoke()
             pred = [interpreter.get_tensor(
                 output_details[i]['index']) for i in range(len(output_details))]
             # run detections using yolov3 if flag is set
-            if fflags.model == 'yolov3' and fflags.tiny == True:
+            if FLAGS.model == 'yolov3' and FLAGS.tiny == True:
                 boxes, pred_conf = filter_boxes(pred[1], pred[0], score_threshold=0.25,
                                                 input_shape=tf.constant([input_size, input_size]))
             else:
@@ -219,8 +221,8 @@ def main(_argv):
                 pred_conf, (tf.shape(pred_conf)[0], -1, tf.shape(pred_conf)[-1])),
             max_output_size_per_class=50,
             max_total_size=50,
-            iou_threshold=fflags.iou,
-            score_threshold=fflags.score
+            iou_threshold=FLAGS.iou,
+            score_threshold=FLAGS.score
         )
 
         # convert data to numpy arrays and slice out unused elements
@@ -260,7 +262,7 @@ def main(_argv):
                 names.append(class_name)
         names = np.array(names)
         count = len(names)
-        if fflags.count:
+        if FLAGS.count:
             cv2.putText(frame, "Objects being tracked: {}".format(
                 count), (5, 35), cv2.FONT_HERSHEY_COMPLEX_SMALL, 2, (0, 255, 0), 2)
             print("Objects being tracked: {}".format(count))
@@ -322,30 +324,28 @@ def main(_argv):
                 cv2.line(frame, (pts[track.track_id][j-1]),
                          (pts[track.track_id][j]), color, thickness)
 
-            center_y = int(((bbox[1])+(bbox[3]))/2)
-            center_x = int(((bbox[0])+(bbox[2]))/2)
-            current_point = [center_x, center_y]
-            memory[track.track_id].append(current_point)
+            memory[track.track_id].append(center)
             previous_point = memory[track.track_id][0]
 
             line = [(line_1_point_x, line_1_point_y),
                     (line_2_point_x, line_2_point_y)]
 
-            # line_2 = [(line_1_point_x_2, line_1_point_y_2),
-            #         (line_2_point_x_2, line_2_point_y_2)]
+            line_2 = [(line_1_point_x_2, line_1_point_y_2),
+                      (line_2_point_x_2, line_2_point_y_2)]
 
-            if intersect(current_point, previous_point, line[0], line[1]) and track.track_id not in already_counted:
+            if (intersect(center, previous_point, line[0], line[1]) or intersect(center, previous_point, line_2[0], line_2[1])) and track.track_id not in already_counted:
+
                 if class_name == 'kendaraan_kecil' or class_name == 'kendaraan_besar':
                     counter.append(int(track.track_id))
                     if class_name == 'kendaraan_kecil':
                         kendaraan_kecil_count.append(int(track.track_id))
                     if class_name == 'kendaraan_besar':
                         kendaraan_besar_count.append(int(track.track_id))
-                    # counter.append(int(track.track_id))
+                    speed_dict[track.track_id] = time.time()
 
                     already_counted.append(track.track_id)
 
-                    angle = vector_vehicle(current_point, previous_point)
+                    angle = vector_vehicle(center, previous_point)
 
                     if angle > 0:
                         down_count += 1
@@ -353,13 +353,15 @@ def main(_argv):
                     if angle < 0:
                         up_count += 1
 
-            # if intersect(current_point, previous_point, line[0], line[1]) and track.track_id in already_counted:
-            #     print("speedd")
+            if(intersect(center, previous_point, line_2[0], line_2[1])) and track.track_id in already_counted:
+                speed = (5/(time.time() - speed_dict[track.track_id]))
+                print("Vehicle Speed : " + str(speed))
+
             if len(memory) > 50:
                 del memory[list(memory)[0]]
 
         # if enable info flag then print details about each track
-            if fflags.info:
+            if FLAGS.info:
                 print("Tracker ID: {}, Class: {},  BBox Coords (xmin, ymin, xmax, ymax): {}".format(
                     str(track.track_id), class_name, (int(bbox[0]), int(bbox[1]), int(bbox[2]), int(bbox[3]))))
 
@@ -368,7 +370,6 @@ def main(_argv):
         total_k_kecil = len(set(kendaraan_kecil_count))
         total_k_besar = len(set(kendaraan_besar_count))
         print(total_k_kecil)
-        print(total_k_besar)
 
         cv2.putText(frame, "Total Kendaraan: " +
                     str(total_count), (0, 100), 0, 1, (255, 255, 255), 2)
@@ -380,27 +381,30 @@ def main(_argv):
                     str(up_count), (0, 250), 0, 1, (255, 255, 255), 2)
         cv2.putText(frame, "Kendaraan Down: " +
                     str(down_count), (0, 300), 0, 1, (255, 255, 255), 2)
+        cv2.putText(frame, "Last Speed: " +
+                    str(speed), (0, 350), 0, 1, (255, 255, 255), 2)
         cv2.putText(frame, "FPS : " + str(int(fps)),
                     (0, 50), 0, 1, (0, 0, 255), 2)
         cv2.line(frame, (line_1_point_x, line_1_point_y),
                  (line_2_point_x, line_2_point_y), (0, 255, 0), thickness=4)
-        # cv2.line(frame, (line_1_point_x_2, line_1_point_y_2),
-        #          (line_2_point_x_2, line_2_point_y_2), (255, 0, 0), thickness=4)
+        cv2.line(frame, (line_1_point_x_2, line_1_point_y_2),
+                 (line_2_point_x_2, line_2_point_y_2), (255, 255, 0), thickness=4)
+        print("Speed_data : " + str(speed_dict))
         result = np.asarray(frame)
         result = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
-        # if time.time() - current_time > 20:
-        #     ws = websocket.WebSocketApp("wss://sipejam-restfullapi.herokuapp.com",
-        #                                 on_open=on_open,
-        #                                 on_message=on_message,
-        #                                 on_error=on_error,
-        #                                 on_close=on_close)
-        #     ws.run_forever()
+        # # if time.time() - current_time > 20:
+        # #     ws = websocket.WebSocketApp("wss://sipejam-restfullapi.herokuapp.com",
+        # #                                 on_open=on_open,
+        # #                                 on_message=on_message,
+        # #                                 on_error=on_error,
+        # #                                 on_close=on_close)
+        # #     ws.run_forever()
         #     current_time = time.time()
-        if not fflags.dont_show:
+        if not FLAGS.dont_show:
             cv2.imshow("Output Video", result)
 
         # if output flag is set, save video file
-        if fflags.output:
+        if FLAGS.output:
             out.write(result)
         if cv2.waitKey(1) & 0xFF == ord('q'):
             break

@@ -20,6 +20,13 @@ def click_event(event, x, y, flags, params):
         cv2.putText(img, str(x) + ',' +
                     str(y), (x, y), font,
                     1, (255, 0, 0), 2)
+        line_1_point_x = int(278)
+        line_1_point_y = int(423)
+        line_2_point_x = int(912)
+        line_2_point_y = int(397)
+        cv2.line(img, (line_1_point_x, line_1_point_y),
+                 (line_2_point_x, line_2_point_y), (0, 255, 0), thickness=4)
+
         cv2.imshow('image', img)
 
     # checking for right mouse clicks
