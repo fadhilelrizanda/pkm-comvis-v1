@@ -375,14 +375,14 @@ def main(_argv):
                     (0, 50), 0, 1, (255, 255, 255), 2)
         result = np.asarray(frame)
         result = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
-        if time.time() - current_time > 20:
-            ws = websocket.WebSocketApp("wss://sipejam-restfullapi.herokuapp.com",
-                                        on_open=on_open,
-                                        on_message=on_message,
-                                        on_error=on_error,
-                                        on_close=on_close)
-            ws.run_forever()
-            current_time = time.time()
+        # if time.time() - current_time > 20:
+        #     ws = websocket.WebSocketApp("wss://sipejam-restfullapi.herokuapp.com",
+        #                                 on_open=on_open,
+        #                                 on_message=on_message,
+        #                                 on_error=on_error,
+        #                                 on_close=on_close)
+        #     ws.run_forever()
+        #     current_time = time.time()
         if not FLAGS.dont_show:
             cv2.imshow("Output Video", result)
 
