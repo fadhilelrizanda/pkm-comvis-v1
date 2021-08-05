@@ -78,9 +78,12 @@ flags.DEFINE_string('output_format', 'mp4v',
                     'codec used in VideoWriter when saving video to file')
 flags.DEFINE_float('iou', 0.45, 'iou threshold')
 flags.DEFINE_float('score', 0.50, 'score threshold')
-flags.DEFINE_boolean('dont_show', True, 'dont show video output')
-flags.DEFINE_boolean('info', True, 'show detailed info of tracked objects')
-flags.DEFINE_boolean('count', True, 'count objects being tracked on screen')
+flags.DEFINE_boolean('dont_show', False, 'dont show video output')
+flags.DEFINE_boolean('info', False, 'show detailed info of tracked objects')
+flags.DEFINE_boolean('count', False, 'count objects being tracked on screen')
+flags.DEFINE_string('video2', './data/video/test.mp4',
+                    'path to input video or set to 0 for webcam')
+flags.DEFINE_string('output2', None, 'path to output video')
 
 
 def intersect(current_point, prev_point, point_line_1, point_line_2):
@@ -123,6 +126,7 @@ def main(_argv):
     STRIDES, ANCHORS, NUM_CLASS, XYSCALE = utils.load_config(FLAGS)
     input_size = FLAGS.size
     video_path = FLAGS.video
+    video_path2 = FLAGS.video2
 
     # For Gate (Counter)
     pts = [deque(maxlen=30) for _ in range(1000)]
@@ -156,8 +160,10 @@ def main(_argv):
     # begin video capture
     try:
         vid = cv2.VideoCapture(int(video_path))
+        vid2 = cv2.VideoCapture(int(video_path2))
     except:
         vid = cv2.VideoCapture(video_path)
+        vid2 = cv2.VideoCapture(video_path2)
 
     out = None
 
@@ -170,23 +176,45 @@ def main(_argv):
         codec = cv2.VideoWriter_fourcc(*FLAGS.output_format)
         out = cv2.VideoWriter(FLAGS.output, codec, fps, (width, height))
 
-    frame_num = 0
+        width2 = int(vid2.get(cv2.CAP_PROP_FRAME_WIDTH))
+        height2 = int(vid2.get(cv2.CAP_PROP_FRAME_HEIGHT))
+        fps2 = int(vid2.get(cv2.CAP_PROP_FPS))
+        codec2 = cv2.VideoWriter_fourcc(*FLAGS.output_format)
+        out2 = cv2.VideoWriter(FLAGS.output2, codec2, fps2, (width2, height2))
+
+    frame_num_1 = 0
+    frame_num_2 = 0
     # while video is running
     while True:
         return_value, frame = vid.read()
-        if return_value:
+        return_value2, frame = vid2.read()
+        if return_value and return_value2:
             frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             image = Image.fromarray(frame)
+
+            frame2 = cv2.cvtColor(frame, cv2.COLOR_BGRA2RGB)
+            image2 = Image.fromarray(frame2)
         else:
-            print('Video has ended or failed, try a different video format!')
+            print('Video has ended or failed, try a differewnt video format!')
             break
-        frame_num += 1
-        print('Frame #: ', frame_num)
+        frame_num_1 += 1
+        frame_num_2 += 1
+
+        # read frame 1
+        print('Frame #: ', frame_num_1)
         frame_size = frame.shape[:2]
         image_data = cv2.resize(frame, (input_size, input_size))
         image_data = image_data / 255.
         image_data = image_data[np.newaxis, ...].astype(np.float32)
         start_time = time.time()
+
+        # Read Frame 2
+        print('Frame %: ', frame_num_2)
+        frame_size2 = frame2.shape[:2]
+        image_data2 = cv2.resize(frame2, (input_size, input_size))
+        image_data2 = image_data2 / 255.
+        image_data2 = image_data2[np.newaxis, ...].astype(np.float32)
+        start_time2 = time.time()
 
         # run detections on tflite if flag is set
         if FLAGS.framework == 'tflite':
@@ -202,8 +230,17 @@ def main(_argv):
                 boxes, pred_conf = filter_boxes(pred[0], pred[1], score_threshold=0.25,
                                                 input_shape=tf.constant([input_size, input_size]))
         else:
+
+            # for frame 1
             batch_data = tf.constant(image_data)
             pred_bbox = infer(batch_data)
+            for key, value in pred_bbox.items():
+                boxes = value[:, :, 0:4]
+                pred_conf = value[:, :, 4:]
+
+            # for frame 2
+            batch_data2 = tf.constant(image_data2)
+            pred_bbox = infer(batch_data2)
             for key, value in pred_bbox.items():
                 boxes = value[:, :, 0:4]
                 pred_conf = value[:, :, 4:]
@@ -256,12 +293,14 @@ def main(_argv):
         names = np.array(names)
         count = len(names)
         if FLAGS.count:
-            cv2.putText(frame, "Objects being tracked: {}".format(
-                count), (5, 35), cv2.FONT_HERSHEY_COMPLEX_SMALL, 2, (0, 255, 0), 2)
+            # cv2.putText(frame, "Objects being tracked: {}".format(
+            #     count), (5, 35), cv2.FONT_HERSHEY_COMPLEX_SMALL, 2, (0, 255, 0), 2)
             print("Objects being tracked: {}".format(count))
         # delete detections that are not in allowed_classes
         bboxes = np.delete(bboxes, deleted_indx, axis=0)
         scores = np.delete(scores, deleted_indx, axis=0)
+
+        # * For frame 1
 
         # encode yolo detections and feed to tracker
         features = encoder(frame, bboxes)
@@ -285,6 +324,7 @@ def main(_argv):
         tracker.update(detections)
 
         fps = 1.0 / (time.time() - start_time)
+
         print("FPS: %.2f" % fps)
 
         # update tracks
@@ -350,6 +390,96 @@ def main(_argv):
             if len(memory) > 50:
                 del memory[list(memory)[0]]
 
+        # * For frame 2
+
+        # encode yolo detections and feed to tracker
+        features2 = encoder(frame2, bboxes)
+        detections2 = [Detection(bbox, score, class_name, feature) for bbox,
+                       score, class_name, feature in zip(bboxes, scores, names, features2)]
+
+        # initialize color map
+        cmap = plt.get_cmap('tab20b')
+        colors = [cmap(i)[:3] for i in np.linspace(0, 1, 20)]
+
+        # run non-maxima supression
+        boxs = np.array([d.tlwh for d in detections2])
+        scores = np.array([d.confidence for d in detections2])
+        classes = np.array([d.class_name for d in detections2])
+        indices = preprocessing.non_max_suppression(
+            boxs, classes, nms_max_overlap, scores)
+        detections2 = [detections2[i] for i in indices]
+
+        # Call the tracker
+        tracker.predict()
+        tracker.update(detections2)
+
+        fps2 = 1.0 / (time.time() - start_time2)
+
+        print("FPS% : %.2f" % fps2)
+
+        # update tracks
+        for track in tracker.tracks:
+            if not track.is_confirmed() or track.time_since_update > 1:
+                continue
+            bbox = track.to_tlbr()
+            class_name = track.get_class()
+            if track.track_id not in memory:
+                memory[track.track_id] = deque(maxlen=2)
+
+                # draw bbox on screen
+            color = colors[int(track.track_id) % len(colors)]
+            color = [i * 255 for i in color]
+            cv2.rectangle(frame2, (int(bbox[0]), int(
+                bbox[1])), (int(bbox[2]), int(bbox[3])), color, 2)
+            cv2.rectangle(frame2, (int(bbox[0]), int(bbox[1]-30)), (int(bbox[0])+(
+                len(class_name)+len(str(track.track_id)))*17, int(bbox[1])), color, -1)
+            cv2.putText(frame2, class_name + "-" + str(track.track_id),
+                        (int(bbox[0]), int(bbox[1]-10)), 0, 0.75, (255, 255, 255), 2)
+
+            center = (int(((bbox[0]) + (bbox[2]))/2),
+                      int(((bbox[1])+(bbox[3]))/2))
+            pts[track.track_id].append(center)
+
+            for j in range(1, len(pts[track.track_id])):
+                if pts[track.track_id][j-1] is None or pts[track.track_id][j] is None:
+                    continue
+                thickness = int(np.sqrt(64/float(j+1))*2)
+                cv2.line(frame2, (pts[track.track_id][j-1]),
+                         (pts[track.track_id][j]), color, thickness)
+
+            center_y = int(((bbox[1])+(bbox[3]))/2)
+            center_x = int(((bbox[0])+(bbox[2]))/2)
+            current_point = [center_x, center_y]
+            memory[track.track_id].append(current_point)
+            previous_point = memory[track.track_id][0]
+
+            line = [(line_1_point_x, line_1_point_y),
+                    (line_2_point_x, line_2_point_y)]
+            cv2.line(frame2, (line_1_point_x, line_1_point_y),
+                     (line_2_point_x, line_2_point_y), (0, 255, 0), thickness=4)
+
+            if intersect(current_point, previous_point, line[0], line[1]) and track.track_id not in already_counted:
+                if class_name == 'kendaraan_kecil' or class_name == 'kendaraan_besar':
+                    counter.append(int(track.track_id))
+                    if class_name == 'kendaraan_kecil':
+                        kendaraan_kecil_count.append(int(track.track_id))
+                    if class_name == 'kendaraan_besar':
+                        kendaraan_besar_count.append(int(track.track_id))
+                    counter.append(int(track.track_id))
+
+                    already_counted.append(track.track_id)
+
+                    angle = vector_vehicle(current_point, previous_point)
+
+                    if angle > 0:
+                        down_count += 1
+
+                    if angle < 0:
+                        up_count += 1
+
+            if len(memory) > 50:
+                del memory[list(memory)[0]]
+
         # if enable info flag then print details about each track
             if FLAGS.info:
                 print("Tracker ID: {}, Class: {},  BBox Coords (xmin, ymin, xmax, ymax): {}".format(
@@ -372,23 +502,41 @@ def main(_argv):
         cv2.putText(frame, "Kendaraan Down: " +
                     str(down_count), (0, 300), 0, 1, (255, 255, 255), 2)
         cv2.putText(frame, "FPS : " + str(int(fps)),
-                    (0, 50), 0, 1, (0, 0, 255), 2)
+                    (0, 50), 0, 1, (255, 255, 255), 2)
         result = np.asarray(frame)
         result = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
-        if time.time() - current_time > 20:
-            ws = websocket.WebSocketApp("wss://sipejam-restfullapi.herokuapp.com",
-                                        on_open=on_open,
-                                        on_message=on_message,
-                                        on_error=on_error,
-                                        on_close=on_close)
-            ws.run_forever()
-            current_time = time.time()
+
+        # for frame 2
+
+        cv2.putText(frame2, "Total Kendaraan: " +
+                    str(total_count), (0, 100), 0, 1, (255, 255, 255), 2)
+        cv2.putText(frame2, "Kendaraan Kecil: " +
+                    str(total_k_kecil), (0, 150), 0, 1, (255, 255, 255), 2)
+        cv2.putText(frame2, "Kendaraan Besar: " +
+                    str(total_k_besar), (0, 200), 0, 1, (255, 255, 255), 2)
+        cv2.putText(frame2, "Kendaraan Up: " +
+                    str(up_count), (0, 250), 0, 1, (255, 255, 255), 2)
+        cv2.putText(frame2, "Kendaraan Down: " +
+                    str(down_count), (0, 300), 0, 1, (255, 255, 255), 2)
+        cv2.putText(frame2, "FPS : " + str(int(fps)),
+                    (0, 50), 0, 1, (255, 255, 255), 2)
+        result2 = np.asarray(frame2)
+        result2 = cv2.cvtColor(frame2, cv2.COLOR_RGB2BGR)
+        # if time.time() - current_time > 20:
+        #     ws = websocket.WebSocketApp("wss://sipejam-restfullapi.herokuapp.com",
+        #                                 on_open=on_open,
+        #                                 on_message=on_message,
+        #                                 on_error=on_error,
+        #                                 on_close=on_close)
+        #     ws.run_forever()
+        #     current_time = time.time()
         if not FLAGS.dont_show:
             cv2.imshow("Output Video", result)
 
         # if output flag is set, save video file
         if FLAGS.output:
             out.write(result)
+            out.write(result2)
         if cv2.waitKey(1) & 0xFF == ord('q'):
             break
     cv2.destroyAllWindows()
