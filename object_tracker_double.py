@@ -194,7 +194,7 @@ def main(_argv):
             frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             image = Image.fromarray(frame)
 
-            frame2 = cv2.cvtColor(frame, cv2.COLOR_BGRA2RGB)
+            frame2 = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             image2 = Image.fromarray(frame2)
         else:
             print('Video has ended or failed, try a differewnt video format!')
