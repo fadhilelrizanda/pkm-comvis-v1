@@ -133,6 +133,8 @@ def main(_argv):
     counter = []
     kendaraan_kecil_count = []
     kendaraan_besar_count = []
+    kendaraan_kecil_count2 = []
+    kendaraan_besar_count2 = []
     memory = {}
     # temporary memory for storing counted IDs
     already_counted = deque(maxlen=50)
@@ -198,7 +200,6 @@ def main(_argv):
             print('Video has ended or failed, try a differewnt video format!')
             break
         frame_num_1 += 1
-        frame_num_2 += 1
 
         # read frame 1
         print('Frame #: ', frame_num_1)
@@ -209,6 +210,7 @@ def main(_argv):
         start_time = time.time()
 
         # Read Frame 2
+        frame_num_2 += 1
         print('Frame %: ', frame_num_2)
         frame_size2 = frame2.shape[:2]
         image_data2 = cv2.resize(frame2, (input_size, input_size))
@@ -415,7 +417,7 @@ def main(_argv):
 
         fps2 = 1.0 / (time.time() - start_time2)
 
-        print("FPS% : %.2f" % fps2)
+        print("FPS2 : %.2f" % fps2)
 
         # update tracks
         for track in tracker.tracks:
@@ -462,9 +464,9 @@ def main(_argv):
                 if class_name == 'kendaraan_kecil' or class_name == 'kendaraan_besar':
                     counter.append(int(track.track_id))
                     if class_name == 'kendaraan_kecil':
-                        kendaraan_kecil_count.append(int(track.track_id))
+                        kendaraan_kecil_count2.append(int(track.track_id))
                     if class_name == 'kendaraan_besar':
-                        kendaraan_besar_count.append(int(track.track_id))
+                        kendaraan_besar_count2.append(int(track.track_id))
                     counter.append(int(track.track_id))
 
                     already_counted.append(track.track_id)
@@ -489,7 +491,9 @@ def main(_argv):
         total_count = len(set(counter))
         total_k_kecil = len(set(kendaraan_kecil_count))
         total_k_besar = len(set(kendaraan_besar_count))
-        print(total_k_kecil)
+
+        total_k_kecil2 = len(set(kendaraan_kecil_count2))
+        total_k_besar2 = len(set(kendaraan_besar_count2))
 
         cv2.putText(frame, "Total Kendaraan: " +
                     str(total_count), (0, 100), 0, 1, (255, 255, 255), 2)
@@ -510,10 +514,10 @@ def main(_argv):
 
         cv2.putText(frame2, "Total Kendaraan: " +
                     str(total_count), (0, 100), 0, 1, (255, 255, 255), 2)
-        cv2.putText(frame2, "Kendaraan Kecil: " +
-                    str(total_k_kecil), (0, 150), 0, 1, (255, 255, 255), 2)
-        cv2.putText(frame2, "Kendaraan Besar: " +
-                    str(total_k_besar), (0, 200), 0, 1, (255, 255, 255), 2)
+        cv2.putText(frame2, "Kendaraan Kecil2: " +
+                    str(total_k_kecil2), (0, 150), 0, 1, (255, 255, 255), 2)
+        cv2.putText(frame2, "Kendaraan Besar2: " +
+                    str(total_k_besar2), (0, 200), 0, 1, (255, 255, 255), 2)
         cv2.putText(frame2, "Kendaraan Up: " +
                     str(up_count), (0, 250), 0, 1, (255, 255, 255), 2)
         cv2.putText(frame2, "Kendaraan Down: " +
@@ -536,7 +540,7 @@ def main(_argv):
         # if output flag is set, save video file
         if FLAGS.output:
             out.write(result)
-            out.write(result2)
+            out2.write(result2)
         if cv2.waitKey(1) & 0xFF == ord('q'):
             break
     cv2.destroyAllWindows()
