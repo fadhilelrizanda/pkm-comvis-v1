@@ -92,7 +92,6 @@ def main(_argv):
     current_time = time.time()
     global total_k_kecil
     # Websocket
-    websocket.enableTrace(True)
     # Definition of the parameters
     max_cosine_distance = 0.4
     nn_budget = None
