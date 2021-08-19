@@ -20,27 +20,25 @@ import os
 from collections import deque
 import math
 
-import json
-
-import websocket
 import time
 
-try:
-    import thread
-except ImportError:
-    import _thread as thread
+
+# Serial Communication
+import serial
+arduino = serial.Serial(port='COM5', baudrate=115200, timeout=.1)
 
 
-def on_message(ws, message):
-    print(message)
+def write_read(x):
+    arduino.write(bytes(x, 'utf-8'))
+    time.sleep(0.05)
+    print(bytes(x, 'utf-8'))
+    data = arduino.readline()
+    return data
 
 
-def on_error(ws, error):
-    print(error)
-
-
-def on_close(ws, close_status_code, close_msg):
-    print("### closed ###")
+def write_message(k_b_1, k_b_2, k_k_1, k_k_2):
+    msg_to_send = "k"+str(k_b_1)+","+str(k_k_1)+","+str(k_b_2)+","+str(k_k_2)
+    return msg_to_send
 
 
 # Changed Variable
@@ -48,7 +46,7 @@ total_k_kecil = int(0)
 
 
 # comment out below line to enable tensorflow logging outputs
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '0'
 physical_devices = tf.config.experimental.list_physical_devices(
     'GPU')  # Check GPU Device
 if len(physical_devices) > 0:
@@ -73,6 +71,7 @@ flags.DEFINE_boolean('count', False, 'count objects being tracked on screen')
 flags.DEFINE_string('video2', './data/video/test.mp4',
                     'path to input video or set to 0 for webcam')
 flags.DEFINE_string('output2', None, 'path to output video')
+flags.DEFINE_boolean('send_esp', False, 'send to data to esp 32')
 
 
 def intersect(current_point, prev_point, point_line_1, point_line_2):
@@ -515,16 +514,14 @@ def main(_argv):
                     (0, 50), 0, 1, (255, 255, 255), 2)
         result2 = np.asarray(frame2)
         result2 = cv2.cvtColor(frame2, cv2.COLOR_RGB2BGR)
-        # if time.time() - current_time > 20:
-        #     ws = websocket.WebSocketApp("wss://sipejam-restfullapi.herokuapp.com",
-        #                                 on_open=on_open,
-        #                                 on_message=on_message,
-        #                                 on_error=on_error,
-        #                                 on_close=on_close)
-        #     ws.run_forever()
-        #     current_time = time.time()
+
+        if FLAGS.send_esp:
+            msg = write_message(total_k_besar, total_k_besar2,
+                                total_k_kecil, total_k_kecil2)
+            write_read(msg)
         if not FLAGS.dont_show:
-            cv2.imshow("Output Video", result)
+            cv2.imshow("Output Video 1 ", result)
+            cv2.imshow("Output Video 2 ", result2)
 
         # if output flag is set, save video file
         if FLAGS.output:
