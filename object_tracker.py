@@ -1,3 +1,6 @@
+import os
+os.environ['CUDA_VISIBLE_DEVICES'] = '1'
+
 from tools import generate_detections as gdet
 from deep_sort.tracker import Tracker
 from deep_sort.detection import Detection
@@ -16,7 +19,7 @@ from absl.flags import FLAGS
 from absl import app, flags, logging
 import tensorflow as tf
 import time
-import os
+
 from collections import deque
 import math
 
